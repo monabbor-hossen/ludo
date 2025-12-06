@@ -29,6 +29,7 @@ class HomeMenu extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Image.asset('assets/logo.png', width: 200),
             const Text("FLUTTER LUDO", style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold)),
             const SizedBox(height: 50),
 
@@ -51,6 +52,7 @@ class HomeMenu extends StatelessWidget {
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15)),
               child: const Text("Join Game", style: TextStyle(fontSize: 18)),
             ),
+
           ],
         ),
       ),

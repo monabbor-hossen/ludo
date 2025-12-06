@@ -31,7 +31,7 @@ class TokenPawn extends StatelessWidget {
       child: Center(
         child: Text(
           "${tokenIndex + 1}", // Show 1, 2, 3, 4 on the pawn
-          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
         ),
       ),
     );

@@ -30,7 +30,7 @@ class BoardLayout extends StatelessWidget {
         double cellSize = boardSize / 15.0;
 
         // 3. Define Token Size (Slightly smaller than cell to look nice)
-        double tokenSize = cellSize * 0.7; // 70% of the square
+        double tokenSize = cellSize * 0.9; // 70% of the square
 
         return SizedBox(
           width: boardSize,
