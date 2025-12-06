@@ -26,3 +26,10 @@ class MoveToken extends GameEvent {
   const MoveToken({required this.gameId, required this.userId, required this.tokenIndex});
 }
 class StartGame extends GameEvent { final String gameId; const StartGame(this.gameId); }
+
+// 5. Leave Game (The missing class)
+class LeaveGameEvent extends GameEvent {
+  final String gameId;
+  final String userId;
+  const LeaveGameEvent(this.gameId, this.userId);
+}

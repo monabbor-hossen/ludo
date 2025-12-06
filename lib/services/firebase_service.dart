@@ -54,7 +54,7 @@ class FirebaseService {
         {
           'id': userId,
           'color': nextColor,
-          'name': playerName, // <--- SAVING NAME
+          'name': playerName, // <--- THIS SAVES IT TO THE CLOUD
           'isAuto': false
         }
       ])
@@ -70,5 +70,45 @@ class FirebaseService {
 
   Future<void> updateGameState(String gameId, Map<String, dynamic> data) async {
     await _db.collection('games').doc(gameId).update(data);
+  }
+
+  Future<void> leaveGame(String gameId, String userId) async {
+    DocumentReference docRef = _db.collection('games').doc(gameId);
+
+    await _db.runTransaction((transaction) async {
+      DocumentSnapshot snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) return;
+
+      Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+      List players = List.from(data['players']);
+      int currentTurn = data['currentTurn'];
+
+      // 1. Find the player who is leaving
+      int playerIndex = players.indexWhere((p) => p['id'] == userId);
+      if (playerIndex == -1) return;
+
+      // 2. Mark them as "Left" (Don't delete them, just mark flag)
+      players[playerIndex]['hasLeft'] = true;
+
+      // 3. CRITICAL: If it was their turn, pass it to the next active player
+      // Ensure this block is in your leaveGame function in FirebaseService
+      if (currentTurn == playerIndex) {
+        int nextTurn = currentTurn;
+        for (int i = 0; i < players.length; i++) {
+          nextTurn = (nextTurn + 1) % players.length;
+          if (players[nextTurn]['hasLeft'] != true) {
+            currentTurn = nextTurn;
+            break;
+          }
+        }
+      }
+
+      // 4. Update Database
+      transaction.update(docRef, {
+        'players': players,
+        'currentTurn': currentTurn, // Updates turn so game continues
+        'diceValue': 0, // Reset dice
+      });
+    });
   }
 }

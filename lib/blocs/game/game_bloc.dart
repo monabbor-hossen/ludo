@@ -4,16 +4,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'game_event.dart';
 import 'game_state.dart';
 import '../../services/firebase_service.dart';
-import '../../services/audio_service.dart'; // Ensure this import exists
+import '../../services/audio_service.dart';
 import '../../models/game_model.dart';
 import '../../logic/game_engine.dart';
 
 class GameBloc extends Bloc<GameEvent, GameState> {
   final FirebaseService _firebaseService;
-  final AudioService _audioService; // <--- 1. Store the service
+  final AudioService _audioService;
   final GameEngine _gameEngine = GameEngine();
 
-  // <--- 2. Fix Constructor to initialize _audioService
   GameBloc(this._firebaseService, this._audioService) : super(GameInitial()) {
 
     // 1. Listen to Stream
@@ -30,25 +29,27 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       await _firebaseService.updateGameState(event.gameId, {'status': 'playing'});
     });
 
-    // 3. Roll Dice
+    // 3. Leave Game
+    on<LeaveGameEvent>((event, emit) async {
+      await _firebaseService.leaveGame(event.gameId, event.userId);
+    });
+
+    // 4. Roll Dice
     on<RollDice>((event, emit) async {
-      // <--- 3. Play Roll Sound
       _audioService.playRoll();
 
       final currentState = state;
       if (currentState is GameLoaded) {
         final game = currentState.gameModel;
 
-        // Generate Random (1-6)
         int diceValue = Random().nextInt(6) + 1;
 
-        // Update result immediately
         await _firebaseService.updateGameState(event.gameId, {
           'diceValue': diceValue,
           'diceRolledBy': game.players[game.currentTurn]['id'],
         });
 
-        // CHECK: Can I move anything?
+        // Check if move is possible
         String color = game.players[game.currentTurn]['color'];
         List<int> myTokens = game.tokens[color]!;
         bool canMove = false;
@@ -65,7 +66,8 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         if (!canMove) {
           await Future.delayed(const Duration(seconds: 1));
 
-          int nextTurn = (game.currentTurn + 1) % game.players.length;
+          // --- FIX 1: Use helper to skip players who left ---
+          int nextTurn = _getNextValidTurn(game, game.currentTurn);
 
           await _firebaseService.updateGameState(event.gameId, {
             'currentTurn': nextTurn,
@@ -75,7 +77,7 @@ class GameBloc extends Bloc<GameEvent, GameState> {
       }
     });
 
-    // 4. Move Token
+    // 5. Move Token
     on<MoveToken>((event, emit) async {
       final currentState = state;
       if (currentState is GameLoaded) {
@@ -88,43 +90,35 @@ class GameBloc extends Bloc<GameEvent, GameState> {
         List<int> tokens = List.from(game.tokens[color]!);
         int currentPos = tokens[event.tokenIndex];
 
-        // A. Calculate Move
+        // Logic
         int newPos = _gameEngine.calculateNextPosition(currentPos, game.diceValue, color);
-
         if (newPos == currentPos) return;
 
-        // B. Apply Move locally first
         tokens[event.tokenIndex] = newPos;
         Map<String, List<int>> allTokens = Map.from(game.tokens);
-
-        // Ensure we create deep copies of the lists to compare accurately
         allTokens = allTokens.map((k, v) => MapEntry(k, List.from(v)));
         allTokens[color] = tokens;
 
-        // <--- 4. Sound Logic Preparation
+        // Sound Logic
         int enemiesBefore = _countEnemiesOnBoard(allTokens, color);
-
-        // C. Check Kills
         allTokens = _gameEngine.checkKill(allTokens, color, newPos);
-
-        // <--- 5. Play Correct Sound
         int enemiesAfter = _countEnemiesOnBoard(allTokens, color);
 
         if (enemiesAfter < enemiesBefore) {
-          _audioService.playKill(); // Enemy count dropped -> Kill happened
-        } else if (newPos == 99) { // Assuming 99 is winning index
+          _audioService.playKill();
+        } else if (newPos == 99) {
           _audioService.playWin();
         } else {
           _audioService.playMove();
         }
 
-        // D. Turn Logic
+        // --- FIX 2: Use helper to skip players who left ---
         int nextTurn = game.currentTurn;
         if (game.diceValue != 6) {
-          nextTurn = (game.currentTurn + 1) % game.players.length;
+          // If not a 6, find the NEXT VALID player
+          nextTurn = _getNextValidTurn(game, game.currentTurn);
         }
 
-        // E. Save to Firebase
         await _firebaseService.updateGameState(event.gameId, {
           'tokens': allTokens,
           'currentTurn': nextTurn,
@@ -134,12 +128,25 @@ class GameBloc extends Bloc<GameEvent, GameState> {
     });
   }
 
-  // <--- 6. Helper Method for Kill Detection
+  // --- Helper Methods ---
+
+  // 1. Calculate next turn, skipping players with 'hasLeft': true
+  int _getNextValidTurn(GameModel game, int currentTurn) {
+    int next = currentTurn;
+    // Loop to find next person who hasn't left
+    for (int i = 0; i < game.players.length; i++) {
+      next = (next + 1) % game.players.length;
+
+      bool hasLeft = game.players[next]['hasLeft'] ?? false;
+      if (!hasLeft) return next;
+    }
+    return currentTurn; // Fallback if everyone left
+  }
+
   int _countEnemiesOnBoard(Map<String, List<int>> tokens, String myColor) {
     int count = 0;
     tokens.forEach((key, positions) {
       if (key != myColor) {
-        // Count active tokens (Not at Home 0, Not Finished 99)
         count += positions.where((pos) => pos > 0 && pos < 99).length;
       }
     });

@@ -37,14 +37,15 @@ class BoardLayout extends StatelessWidget {
           height: boardSize,
           child: Stack(
             children: [
-              // A. THE VISUAL BOARD (Code Generated, No Image)
+              // A. THE VISUAL BOARD
               Positioned.fill(
                 child: CustomPaint(
-                  painter: LudoBoardPainter(), // Uses the responsive code we just wrote
+                  // Pass the players list here!
+                  painter: LudoBoardPainter(players: gameModel.players),
                 ),
               ),
 
-              // B. THE TOKENS (Mapped to the exact same grid)
+              // B. THE TOKENS
               ..._buildTokens(context, gameModel.tokens, cellSize, tokenSize),
             ],
           ),
