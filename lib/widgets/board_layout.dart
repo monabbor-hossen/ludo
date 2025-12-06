@@ -55,32 +55,83 @@ class BoardLayout extends StatelessWidget {
     allTokens.forEach((color, positions) {
       for (int i = 0; i < positions.length; i++) {
         int currentPos = positions[i];
-        Point? gridPoint;
 
-        // 1. Determine Position
-        if (currentPos == 0) {
-          gridPoint = PathConstants.homeBases[color]![i];
-        } else {
-          gridPoint = PathConstants.stepToGrid[currentPos];
+        // Variables for position
+        double left = 0;
+        double top = 0;
+        bool shouldShow = false;
+
+        // --- 1. WINNER LOGIC (Index 99) ---
+        if (currentPos == 99) {
+          shouldShow = true;
+
+          // Center of the board (Row 7, Col 7)
+          double centerGrid = 7.0 * cellSize;
+
+          // Shift them into their Victory Triangles based on Color
+          switch (color) {
+            case 'Red': // Left Triangle (Shift Left)
+              left = centerGrid - (cellSize * 0.6);
+              top = centerGrid;
+              break;
+            case 'Green': // Top Triangle (Shift Up)
+              left = centerGrid;
+              top = centerGrid - (cellSize * 0.6);
+              break;
+            case 'Yellow': // Right Triangle (Shift Right)
+              left = centerGrid + (cellSize * 0.6);
+              top = centerGrid;
+              break;
+            case 'Blue': // Bottom Triangle (Shift Down)
+              left = centerGrid;
+              top = centerGrid + (cellSize * 0.6);
+              break;
+          }
+
+          // Small Jitter: If multiple pawns win, shift them slightly so they don't stack perfectly
+          double jitter = i * (tokenSize * 0.2);
+          // (tokenSize * 0.2 is roughly 4-5 pixels)
+
+          if (color == 'Red' || color == 'Yellow') top += jitter - (tokenSize * 0.3);
+          if (color == 'Green' || color == 'Blue') left += jitter - (tokenSize * 0.3);
+
+          // Add generic centering for the token widget itself
+          left += centeringOffset;
+          top += centeringOffset;
         }
 
-        if (gridPoint != null) {
-          double left = (gridPoint.col * cellSize) + centeringOffset;
-          double top = (gridPoint.row * cellSize) + centeringOffset;
+        // --- 2. HOME BASE LOGIC (Index 0) ---
+        else if (currentPos == 0) {
+          Point? gridPoint = PathConstants.homeBases[color]?[i];
+          if (gridPoint != null) {
+            shouldShow = true;
+            left = (gridPoint.col * cellSize) + centeringOffset;
+            top = (gridPoint.row * cellSize) + centeringOffset;
+          }
+        }
 
-          // Inside _buildTokens method, replace the existing Positioned widget with this:
+        // --- 3. PATH LOGIC (1 - 52 etc) ---
+        else {
+          Point? gridPoint = PathConstants.stepToGrid[currentPos];
+          if (gridPoint != null) {
+            shouldShow = true;
+            left = (gridPoint.col * cellSize) + centeringOffset;
+            top = (gridPoint.row * cellSize) + centeringOffset;
+          }
+        }
 
-          // Inside _buildTokens method...
-
+        // --- RENDER ---
+        if (shouldShow) {
           widgets.add(
-            // CHANGED: Use Positioned (No Animation) instead of AnimatedPositioned
             Positioned(
               left: left,
               top: top,
-
               child: GestureDetector(
                 onTap: () {
-                  _handleTap(context, color, i, currentPos);
+                  // Only allow tap if NOT finished (99)
+                  if (currentPos != 99) {
+                    _handleTap(context, color, i, currentPos);
+                  }
                 },
                 child: SizedBox(
                   width: tokenSize,
@@ -88,7 +139,8 @@ class BoardLayout extends StatelessWidget {
                   child: TokenPawn(
                     colorName: color,
                     tokenIndex: i,
-                    isDimmed: gameModel.diceValue == 0,
+                    // Dim if finished or dice is 0
+                    isDimmed: gameModel.diceValue == 0 || currentPos == 99,
                   ),
                 ),
               ),
@@ -99,7 +151,6 @@ class BoardLayout extends StatelessWidget {
     });
     return widgets;
   }
-
   // <--- 4. THE LOGIC HANDLER
   void _handleTap(BuildContext context, String clickedPawnColor, int index, int currentPos) {
 
