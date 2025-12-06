@@ -63,7 +63,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       final p = game.players[index];
                       return ListTile(
                         leading: CircleAvatar(backgroundColor: _getColor(p['color'])),
-                        title: Text("Player ${index + 1} (${p['color']})"),
+                        title: Text("${p['name']} (${p['color']})"), // <--- Shows "John (Red)"
                         subtitle: Text(p['id'] == widget.userId ? "(You)" : ""),
                       );
                     },
