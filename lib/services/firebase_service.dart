@@ -81,17 +81,21 @@ class FirebaseService {
 
       Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
       List players = List.from(data['players']);
+      Map<String, dynamic> tokens = Map.from(data['tokens']); // Get tokens
       int currentTurn = data['currentTurn'];
 
-      // 1. Find the player who is leaving
+      // 1. Find the player
       int playerIndex = players.indexWhere((p) => p['id'] == userId);
       if (playerIndex == -1) return;
 
-      // 2. Mark them as "Left" (Don't delete them, just mark flag)
+      // 2. Mark as Left
       players[playerIndex]['hasLeft'] = true;
 
-      // 3. CRITICAL: If it was their turn, pass it to the next active player
-      // Ensure this block is in your leaveGame function in FirebaseService
+      // 3. RESET TOKENS TO HOME (This triggers the animation)
+      String color = players[playerIndex]['color'];
+      tokens[color] = [0, 0, 0, 0]; // Send all 4 tokens back to start
+
+      // 4. Pass Turn if needed
       if (currentTurn == playerIndex) {
         int nextTurn = currentTurn;
         for (int i = 0; i < players.length; i++) {
@@ -103,11 +107,12 @@ class FirebaseService {
         }
       }
 
-      // 4. Update Database
+      // 5. Update Database
       transaction.update(docRef, {
         'players': players,
-        'currentTurn': currentTurn, // Updates turn so game continues
-        'diceValue': 0, // Reset dice
+        'tokens': tokens, // Save the reset tokens
+        'currentTurn': currentTurn,
+        'diceValue': 0,
       });
     });
   }

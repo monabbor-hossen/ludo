@@ -3,8 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/game/game_bloc.dart';
 import '../blocs/game/game_event.dart';
 import '../blocs/game/game_state.dart';
-import 'game_board.dart';
 
+// --- THIS IMPORT WAS MISSING ---
+import '../screens/game_board.dart';
 class LobbyScreen extends StatefulWidget {
   final String gameId;
   final String userId;
@@ -28,12 +29,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return BlocConsumer<GameBloc, GameState>(
       listener: (context, state) {
         if (state is GameLoaded) {
-          // If status changes to 'playing', navigate to board [cite: 14]
+          // If status changes to 'playing', navigate to board
           if (state.gameModel.status == 'playing') {
             Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                    builder: (_) => GameBoard(
+                    builder: (_) => GameBoard( // <--- Now this class is found!
                         gameId: widget.gameId,
                         userId: widget.userId
                     )
@@ -63,28 +64,23 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       final p = game.players[index];
                       return ListTile(
                         leading: CircleAvatar(backgroundColor: _getColor(p['color'])),
-                        title: Text("${p['name']} (${p['color']})"), // <--- Shows "John (Red)"
+                        title: Text("${p['name']} (${p['color']})"),
                         subtitle: Text(p['id'] == widget.userId ? "(You)" : ""),
                       );
                     },
                   ),
                 ),
+
                 // Start Button (Only for Host/Player 1)
-                // Inside LobbyScreen build method...
-
-// Start Button (Only for Host/Player 1)
-                // Inside the build method...
-
-// Start Button (Only for Host/Player 1)
                 if (game.players.isNotEmpty && game.players[0]['id'] == widget.userId)
                   Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
-                        disabledBackgroundColor: Colors.grey[400], // Visual feedback for disabled
+                        disabledBackgroundColor: Colors.grey,
                       ),
-                      // Logic: If players < 2, Button is Disabled (null). If >= 2, Enabled.
+                      // Disable if alone
                       onPressed: game.players.length < 2
                           ? null
                           : () {
@@ -95,7 +91,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         style: const TextStyle(color: Colors.white),
                       ),
                     ),
-                  ),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Text(
+                      "Waiting for host to start...",
+                      style: TextStyle(fontStyle: FontStyle.italic, fontSize: 16),
+                    ),
+                  )
               ],
             ),
           );

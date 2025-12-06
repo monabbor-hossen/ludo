@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ludo/widgets/ludo_board_painter.dart' hide Point; // Hide Point to avoid conflict
+import 'package:ludo/widgets/token_pawn.dart';
 import '../models/game_model.dart';
 import '../logic/path_constants.dart';
+import '../logic/game_engine.dart'; // <--- 1. Import Engine
 import '../blocs/game/game_bloc.dart';
 import '../blocs/game/game_event.dart';
-import 'token_pawn.dart';
-import 'ludo_board_painter.dart' hide Point; // Import the new painter
 
 class BoardLayout extends StatelessWidget {
   final GameModel gameModel;
   final String currentUserId;
+  final GameEngine _engine = GameEngine(); // <--- 2. Create Engine Instance
 
-  const BoardLayout({
+  BoardLayout({
     super.key,
     required this.gameModel,
     required this.currentUserId,
@@ -21,16 +23,9 @@ class BoardLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 1. Calculate the Square Board Size based on the screen width
-        // We take the width, minus padding (if you added any in parent),
-        // but ensure it doesn't overflow height.
         double boardSize = constraints.maxWidth;
-
-        // 2. Define Cell Size (Exact Grid Math)
         double cellSize = boardSize / 15.0;
-
-        // 3. Define Token Size (Slightly smaller than cell to look nice)
-        double tokenSize = cellSize * 0.9; // 70% of the square
+        double tokenSize = cellSize * 0.9;
 
         return SizedBox(
           width: boardSize,
@@ -40,7 +35,6 @@ class BoardLayout extends StatelessWidget {
               // A. THE VISUAL BOARD
               Positioned.fill(
                 child: CustomPaint(
-                  // Pass the players list here!
                   painter: LudoBoardPainter(players: gameModel.players),
                 ),
               ),
@@ -56,69 +50,39 @@ class BoardLayout extends StatelessWidget {
 
   List<Widget> _buildTokens(BuildContext context, Map<String, List<int>> allTokens, double cellSize, double tokenSize) {
     List<Widget> widgets = [];
-
-    // Calculate offset to center the token in the cell
     double centeringOffset = (cellSize - tokenSize) / 2;
 
     allTokens.forEach((color, positions) {
       for (int i = 0; i < positions.length; i++) {
-        int pathIndex = positions[i];
+        int currentPos = positions[i];
         Point? gridPoint;
 
-        // --- POSITION LOGIC ---
-        if (pathIndex == 0) {
-          // Home Base Logic (0, 1, 2, 3 specific spots)
-          // Note: In LudoBoardPainter, we drew circles at offsets like (col + 1.5).
-          // We must match that logic here.
+        // 1. Determine Position
+        if (currentPos == 0) {
           gridPoint = PathConstants.homeBases[color]![i];
-
-          // SPECIAL ADJUSTMENT FOR HOME:
-          // The painter drew circles centered at e.g., (2.5, 2.5).
-          // The gridPoint is (2, 2).
-          // So we need to position the token at (2 * cell) + (0.5 * cell) - (token/2)
-          // Or simply: (2 * cell) + cell/2 - token/2
-
-          double left = (gridPoint.col * cellSize) + (cellSize / 2) + (cellSize * 0.0) - (tokenSize / 2);
-          double top = (gridPoint.row * cellSize) + (cellSize / 2) + (cellSize * 0.0) - (tokenSize / 2);
-
-          // Wait, logic check: homeBases in PathConstants are (2,2), (2,3)...
-          // In Painter: Offset((col + 1.5) * cellSize...
-          // If Red is col=0, row=0. Circles are at 1.5, 1.5
-          // My PathConstants say Red Base points are (2,2).
-          // 0 + 1.5 = 1.5. Grid Point 2 is... 2.0.
-          // Ah, we need to sync perfectly.
-          // Let's use the exact center of the grid cell provided by PathConstants.
-
-          left = (gridPoint.col * cellSize) + centeringOffset;
-          top = (gridPoint.row * cellSize) + centeringOffset;
-
-          // Wait! PathConstants.homeBases: Red=[(2,2)...].
-          // Painter Red Base is at 0,0 (6x6).
-          // Inside Red Base, circles are at roughly grid cells (2,2), (2,3), (3,2), (3,3).
-          // Yes! So using standard grid centering is correct.
-
         } else {
-          // Standard Path Logic
-          gridPoint = PathConstants.stepToGrid[pathIndex];
+          gridPoint = PathConstants.stepToGrid[currentPos];
         }
 
         if (gridPoint != null) {
           double left = (gridPoint.col * cellSize) + centeringOffset;
           double top = (gridPoint.row * cellSize) + centeringOffset;
 
+          // Inside _buildTokens method, replace the existing Positioned widget with this:
+
           widgets.add(
-            Positioned(
+            AnimatedPositioned(
+              // 1. ANIMATION SETTINGS
+              duration: const Duration(milliseconds: 600), // Takes 0.6 seconds to fly home
+              curve: Curves.easeInOutBack, // A nice smooth curve with a slight bounce
+
+              // 2. COORDINATES
               left: left,
               top: top,
+
               child: GestureDetector(
                 onTap: () {
-                  context.read<GameBloc>().add(
-                    MoveToken(
-                      gameId: gameModel.gameId,
-                      userId: currentUserId,
-                      tokenIndex: i,
-                    ),
-                  );
+                  _handleTap(context, color, i, currentPos);
                 },
                 child: SizedBox(
                   width: tokenSize,
@@ -137,5 +101,75 @@ class BoardLayout extends StatelessWidget {
     });
     return widgets;
   }
-}
 
+  // <--- 4. THE LOGIC HANDLER
+  void _handleTap(BuildContext context, String clickedPawnColor, int index, int currentPos) {
+
+    // A. IDENTIFY MY COLOR (The Local Player)
+    final myPlayer = gameModel.players.firstWhere(
+            (p) => p['id'] == currentUserId,
+        orElse: () => {'color': 'Spectator'}
+    );
+    String myColor = myPlayer['color'];
+
+    // B. STRICT OWNERSHIP CHECK
+    // If I click a pawn that isn't mine, stop immediately with a message.
+    if (clickedPawnColor != myColor) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("You are $myColor! You can't move $clickedPawnColor."),
+          backgroundColor: Colors.black87,
+          duration: const Duration(milliseconds: 700),
+        ),
+      );
+      return;
+    }
+
+    // C. TURN CHECK
+    final currentPlayer = gameModel.players[gameModel.currentTurn];
+    if (currentPlayer['id'] != currentUserId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text("Wait for your turn!"),
+            backgroundColor: Colors.red,
+            duration: Duration(milliseconds: 500)
+        ),
+      );
+      return;
+    }
+
+    // D. DICE CHECK
+    if (gameModel.diceValue == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Roll the dice first!"), duration: Duration(milliseconds: 500)),
+      );
+      return;
+    }
+
+    // E. VALIDATE MOVE (Game Engine Rules)
+    int nextPos = _engine.calculateNextPosition(currentPos, gameModel.diceValue, clickedPawnColor);
+
+    // If position doesn't change, the move is invalid based on rules
+    if (nextPos == currentPos) {
+      if (currentPos == 0 && gameModel.diceValue != 6) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("You need a 6 to move out of home!"), duration: Duration(milliseconds: 700)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Invalid move!"), duration: Duration(milliseconds: 500)),
+        );
+      }
+      return;
+    }
+
+    // F. SEND MOVE EVENT (Only if everything above passed)
+    context.read<GameBloc>().add(
+      MoveToken(
+        gameId: gameModel.gameId,
+        userId: currentUserId,
+        tokenIndex: index,
+      ),
+    );
+  }
+}

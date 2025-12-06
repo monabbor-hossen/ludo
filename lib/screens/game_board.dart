@@ -2,59 +2,83 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../blocs/game/game_bloc.dart';
-import '../blocs/game/game_event.dart'; // Required for LeaveGameEvent
+import '../blocs/game/game_event.dart';
 import '../blocs/game/game_state.dart';
-import '../models/game_model.dart'; // Required for GameModel type
+import '../models/game_model.dart';
 import '../widgets/board_layout.dart';
 import '../widgets/dice_widget.dart';
 
-class GameBoard extends StatelessWidget {
+class GameBoard extends StatefulWidget {
   final String gameId;
   final String userId;
 
   const GameBoard({super.key, required this.gameId, required this.userId});
 
   @override
+  State<GameBoard> createState() => _GameBoardState();
+}
+
+class _GameBoardState extends State<GameBoard> {
+  // Keep track of IDs we have already shown the "Left" message for
+  final Set<String> _notifiedLeftPlayers = {};
+
+  @override
   Widget build(BuildContext context) {
-    // We use BlocConsumer to LISTEN (for game over) and BUILD (the UI)
     return BlocConsumer<GameBloc, GameState>(
-      // 1. LISTENER: Handles logic when players leave
       listener: (context, state) {
         if (state is GameLoaded) {
           final players = state.gameModel.players;
 
-          // Count active players
+          // 1. CHECK FOR NEW LEAVERS (Show SnackBar)
+          for (var p in players) {
+            bool hasLeft = p['hasLeft'] ?? false;
+            String pid = p['id'];
+
+            // If they left, and we haven't shown the message yet...
+            if (hasLeft && !_notifiedLeftPlayers.contains(pid)) {
+              _notifiedLeftPlayers.add(pid); // Mark as notified
+
+              String name = p['name'] ?? p['color'];
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("$name left the game!"),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          }
+
+          // 2. CHECK GAME OVER
+          // Count active players (those who have NOT left)
           int activePlayers = players.where((p) => p['hasLeft'] != true).length;
 
-          // GAME OVER CONDITION:
-          // Only if the game had started (length > 1) AND now only 1 person is left.
+          // Only show Game Over if the game had started (length > 1) AND now only 1 remains
           if (players.length > 1 && activePlayers < 2) {
-            _showGameOverDialog(context);
+            _showGameOverDialog();
           }
-          // If activePlayers is 2 or more, this block is SKIPPED, and game continues.
         }
       },
-      // 2. BUILDER: Draws the UI
       builder: (context, state) {
         if (state is GameLoaded) {
           final game = state.gameModel;
 
-          // Get current player data safely
+          // Get current player data
           final currentPlayer = game.players[game.currentTurn];
           final String turnColor = currentPlayer['color'];
-          // Fallback to Color name if specific name is missing
           final String turnName = currentPlayer['name'] ?? turnColor;
 
           return Scaffold(
             appBar: AppBar(
               title: const Text("Ludo"),
-              automaticallyImplyLeading: false, // Prevent back button
+              automaticallyImplyLeading: false,
               actions: [
-                // 3. EXIT BUTTON
+                // EXIT BUTTON
                 IconButton(
                   icon: const Icon(Icons.exit_to_app, color: Colors.red),
                   tooltip: "Leave Game",
-                  onPressed: () => _showLeaveConfirmDialog(context, game),
+                  onPressed: () => _showLeaveConfirmDialog(game),
                 )
               ],
             ),
@@ -73,7 +97,7 @@ class GameBoard extends StatelessWidget {
                         children: [
                           const TextSpan(text: "Waiting for "),
                           TextSpan(
-                            text: "$turnName's", // Name is shown here
+                            text: "$turnName's",
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: _getColor(turnColor),
@@ -91,8 +115,8 @@ class GameBoard extends StatelessWidget {
                 Expanded(
                   child: Center(
                     child: BoardLayout(
-                        gameModel: game,
-                        currentUserId: userId
+                      gameModel: game,
+                      currentUserId: widget.userId, // Use 'widget.userId' in State class
                     ),
                   ),
                 ),
@@ -110,12 +134,12 @@ class GameBoard extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text("You are:"),
-                          Chip(label: Text(_getMyColor(game, userId))),
+                          Chip(label: Text(_getMyColor(game, widget.userId))),
                         ],
                       ),
 
                       // The Dice
-                      DiceWidget(myPlayerId: userId),
+                      DiceWidget(myPlayerId: widget.userId),
                     ],
                   ),
                 ),
@@ -128,7 +152,7 @@ class GameBoard extends StatelessWidget {
     );
   }
 
-  // --- HELPER METHODS ---
+  // --- HELPER METHODS (Defined inside the State class) ---
 
   String _getMyColor(GameModel game, String userId) {
     final me = game.players.firstWhere(
@@ -148,7 +172,7 @@ class GameBoard extends StatelessWidget {
 
   // --- DIALOGS ---
 
-  void _showLeaveConfirmDialog(BuildContext context, GameModel game) {
+  void _showLeaveConfirmDialog(GameModel game) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -156,15 +180,15 @@ class GameBoard extends StatelessWidget {
         content: const Text("You will be removed from the game."),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx), // Cancel
+            onPressed: () => Navigator.pop(ctx),
             child: const Text("Cancel"),
           ),
           TextButton(
             onPressed: () {
-              // Trigger the Leave Event in BLoC
-              context.read<GameBloc>().add(LeaveGameEvent(gameId, userId));
+              // Trigger Leave Event
+              context.read<GameBloc>().add(LeaveGameEvent(widget.gameId, widget.userId));
               Navigator.pop(ctx); // Close Dialog
-              Navigator.pop(context); // Go back to Home Menu
+              Navigator.pop(context); // Go back to Home
             },
             child: const Text("Leave", style: TextStyle(color: Colors.red)),
           )
@@ -173,12 +197,12 @@ class GameBoard extends StatelessWidget {
     );
   }
 
-  void _showGameOverDialog(BuildContext context) {
-    // Prevent multiple dialogs if one is already open
+  void _showGameOverDialog() {
+    // Prevent multiple dialogs
     if (ModalRoute.of(context)?.isCurrent != true) return;
 
     showDialog(
-      barrierDismissible: false, // User must click OK
+      barrierDismissible: false,
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Game Over"),
