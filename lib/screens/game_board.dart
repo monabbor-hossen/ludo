@@ -19,65 +19,65 @@ class GameBoard extends StatefulWidget {
 }
 
 class _GameBoardState extends State<GameBoard> {
-  // Keep track of IDs we have already shown the "Left" message for
   final Set<String> _notifiedLeftPlayers = {};
 
-  // Prevent showing the win dialog multiple times
+  // Track winners we have already notified about (for the Mini Dialog)
+  final Set<String> _notifiedWinners = {};
+
   bool _celebrationShown = false;
 
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<GameBloc, GameState>(
-      // 1. LISTENER: Handles Left Players, Win, and Loss
       listener: (context, state) {
         if (state is GameLoaded) {
           final game = state.gameModel;
           final players = game.players;
 
-          // A. Check for new leavers
+          // A. Player Left SnackBar
           for (var p in players) {
             bool hasLeft = p['hasLeft'] ?? false;
             String pid = p['id'];
-
             if (hasLeft && !_notifiedLeftPlayers.contains(pid)) {
               _notifiedLeftPlayers.add(pid);
-              String name = p['name'] ?? p['color'];
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text("$name left the game!"),
-                  backgroundColor: Colors.orange[800],
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("${p['name']} left!"), backgroundColor: Colors.orange));
             }
           }
 
-          // B. CHECK WIN/RANKING STATUS
-          // Only check if we haven't shown the dialog yet
+          // B. MINI DIALOG (For OTHER players winning)
+          // If a new winner appears, and it is NOT me, show a quick popup
+          for (String winnerId in game.winners) {
+            if (!_notifiedWinners.contains(winnerId)) {
+              _notifiedWinners.add(winnerId);
+
+              if (winnerId != widget.userId) {
+                // Find name
+                final winner = players.firstWhere((p) => p['id'] == winnerId, orElse: () => {'name': 'Unknown'});
+                _showMiniWinNotification(winner['name']);
+              }
+            }
+          }
+
+          // C. MY WIN/LOSS DIALOG
           if (!_celebrationShown) {
-            // 1. Did I win? (Am I in the winners list?)
             if (game.winners.contains(widget.userId)) {
               _celebrationShown = true;
-              int rank = game.winners.indexOf(widget.userId) + 1; // 0 index = 1st place
-              _showCelebrationDialog(rank, false);
+              int rank = game.winners.indexOf(widget.userId) + 1;
+              _showCelebrationDialog(rank, false, players.length);
             }
-
-            // 2. Did I lose? (Game finished, and I am NOT in winners list)
             else if (game.status == 'finished') {
               _celebrationShown = true;
-              _showCelebrationDialog(0, true); // Rank 0, isLoser = true
+              _showCelebrationDialog(0, true, players.length);
             }
           }
 
-          // C. Check Game Over (Empty Room Scenario)
-          // (Only triggers if players actually leave via menu, not just finishing game)
+          // D. Game Over (Empty Room)
           int activePlayers = players.where((p) => p['hasLeft'] != true).length;
           if (players.length > 1 && activePlayers < 2 && game.status != 'finished') {
             _showGameOverDialog();
           }
         }
       },
-      // 2. BUILDER
       builder: (context, state) {
         if (state is GameLoaded) {
           final game = state.gameModel;
@@ -86,17 +86,19 @@ class _GameBoardState extends State<GameBoard> {
           final String turnName = currentPlayer['name'] ?? turnColor;
 
           return Scaffold(
+            // 1. OPACITY FIX
             body: Container(
               decoration: const BoxDecoration(
                 image: DecorationImage(
                   image: AssetImage('assets/wood.png'),
                   fit: BoxFit.cover,
+                  opacity: 1, // <--- CHANGED TO 0.25 AS REQUESTED
                 ),
               ),
               child: SafeArea(
                 child: Column(
                   children: [
-                    // A. APP BAR
+                    // App Bar
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                       padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
@@ -104,10 +106,7 @@ class _GameBoardState extends State<GameBoard> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                              "Ludo",
-                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF3E2723))
-                          ),
+                          const Text("Ludo", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF3E2723))),
                           IconButton(
                             icon: const Icon(Icons.exit_to_app, color: Color(0xFF8D6E63), size: 30),
                             onPressed: () => _showLeaveConfirmDialog(game),
@@ -116,7 +115,7 @@ class _GameBoardState extends State<GameBoard> {
                       ),
                     ),
 
-                    // B. STATUS PLANK
+                    // Status
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 40),
                       padding: const EdgeInsets.all(10),
@@ -129,11 +128,7 @@ class _GameBoardState extends State<GameBoard> {
                               const TextSpan(text: "Waiting for "),
                               TextSpan(
                                 text: "$turnName's",
-                                style: TextStyle(
-                                  color: _getColor(turnColor),
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                                style: TextStyle(color: _getColor(turnColor), fontSize: 20, fontWeight: FontWeight.w900),
                               ),
                               const TextSpan(text: " move"),
                             ],
@@ -144,27 +139,22 @@ class _GameBoardState extends State<GameBoard> {
 
                     const Spacer(),
 
-                    // C. THE BOARD
+                    // Board
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Container(
                           decoration: BoxDecoration(
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)
-                            ],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 15, spreadRadius: 2)],
                           ),
-                          child: BoardLayout(
-                            gameModel: game,
-                            currentUserId: widget.userId,
-                          ),
+                          child: BoardLayout(gameModel: game, currentUserId: widget.userId),
                         ),
                       ),
                     ),
 
                     const Spacer(),
 
-                    // D. CONTROLS
+                    // Controls
                     Container(
                       height: 140,
                       padding: const EdgeInsets.all(20),
@@ -178,26 +168,18 @@ class _GameBoardState extends State<GameBoard> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            decoration: _woodenBoxDecoration().copyWith(
-                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 5)]
-                            ),
+                            decoration: _woodenBoxDecoration(),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Text("You are:", style: TextStyle(color: Color(0xFF3E2723), fontSize: 12)),
-                                Text(
-                                    _getMyColor(game, widget.userId),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF3E2723))
-                                ),
+                                Text(_getMyColor(game, widget.userId), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF3E2723))),
                               ],
                             ),
                           ),
                           Container(
                               padding: const EdgeInsets.all(5),
-                              decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20)
-                              ),
+                              decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
                               child: DiceWidget(myPlayerId: widget.userId)
                           ),
                         ],
@@ -218,24 +200,15 @@ class _GameBoardState extends State<GameBoard> {
   BoxDecoration _woodenBoxDecoration() {
     return BoxDecoration(
       color: const Color(0xFFD7CCC8),
-      image: const DecorationImage(
-        image: AssetImage('assets/wood.png'),
-        fit: BoxFit.cover,
-        opacity: 0.5,
-      ),
+      image: const DecorationImage(image: AssetImage('assets/wood.png'), fit: BoxFit.cover, opacity: 0.5),
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: const Color(0xFF5D4037), width: 2),
-      boxShadow: const [
-        BoxShadow(color: Colors.black45, offset: Offset(2, 4), blurRadius: 4)
-      ],
+      boxShadow: const [BoxShadow(color: Colors.black45, offset: Offset(2, 4), blurRadius: 4)],
     );
   }
 
   String _getMyColor(GameModel game, String userId) {
-    final me = game.players.firstWhere(
-            (p) => p['id'] == userId,
-        orElse: () => {'color': 'Spectator'}
-    );
+    final me = game.players.firstWhere((p) => p['id'] == userId, orElse: () => {'color': 'Spectator'});
     return me['color'];
   }
 
@@ -247,81 +220,74 @@ class _GameBoardState extends State<GameBoard> {
     return Colors.black;
   }
 
-  // --- DIALOGS ---
+  // --- DIALOGS & OVERLAYS ---
 
-  // 1. CELEBRATION / RANKING DIALOG (NEW)
-  void _showCelebrationDialog(int rank, bool isLoser) {
-    String title;
-    String message;
-    Color color;
-    IconData icon;
+  // 1. MINI DIALOG (3 Seconds)
+  void _showMiniWinNotification(String winnerName) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent, // Don't block screen
+      barrierDismissible: false,
+      builder: (ctx) {
+        // Auto-close after 3 seconds
+        Future.delayed(const Duration(seconds: 3), () {
+          if (ctx.mounted) Navigator.of(ctx).pop();
+        });
 
-    if (isLoser) {
-      title = "😢 YOU LOST 😢";
-      message = "Better luck next time!";
-      color = Colors.red;
-      icon = Icons.sentiment_very_dissatisfied;
-    } else {
-      switch (rank) {
-        case 1:
-          title = "🏆 1st PLACE! 🏆";
-          message = "Champion! You won the game!";
-          color = Colors.amber;
-          icon = Icons.emoji_events;
-          break;
-        case 2:
-          title = "🥈 2nd PLACE! 🥈";
-          message = "Great job! You finished 2nd.";
-          color = const Color(0xFFB0BEC5); // Silver
-          icon = Icons.emoji_events;
-          break;
-        case 3:
-          title = "🥉 3rd PLACE! 🥉";
-          message = "Good game! You finished 3rd.";
-          color = const Color(0xFF8D6E63); // Bronze
-          icon = Icons.emoji_events;
-          break;
-        default:
-          title = "WINNER!";
-          message = "You finished the game!";
-          color = Colors.amber;
-          icon = Icons.star;
-      }
-    }
+        return Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            margin: const EdgeInsets.only(top: 80),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+                color: Colors.amber,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black45)]
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.emoji_events, color: Colors.black),
+                  const SizedBox(width: 10),
+                  Text("$winnerName Won!", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 2. MAIN CELEBRATION (Stay or Exit)
+  void _showCelebrationDialog(int rank, bool isLoser, int totalPlayers) {
+    String title = isLoser ? "😢 YOU LOST 😢" : "🏆 WINNER 🏆";
+    String message = isLoser ? "Better luck next time!" : "You finished rank #$rank!";
+    Color color = isLoser ? Colors.red : Colors.amber;
+
+    // Logic: If only 2 players, Game Over immediately. If >2, can stay.
+    bool canStay = (totalPlayers > 2);
 
     showDialog(
       context: context,
-      barrierDismissible: false, // Must tap button
+      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFFD7CCC8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF5D4037), width: 3),
-        ),
-        title: Center(
-          child: Text(
-            title,
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: color, shadows: const [Shadow(color: Colors.black26, blurRadius: 2)]),
-          ),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Color(0xFF5D4037), width: 3)),
+        title: Center(child: Text(title, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: color))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 70, color: color),
+            Icon(isLoser ? Icons.sentiment_very_dissatisfied : Icons.emoji_events, size: 70, color: color),
             const SizedBox(height: 20),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3E2723)),
-            ),
-            if (!isLoser)
+            Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3E2723))),
+            if (canStay && !isLoser)
               const Padding(
                 padding: EdgeInsets.only(top: 15),
-                child: Text(
-                  "(You can stay and watch the others finish!)",
-                  style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black54),
-                  textAlign: TextAlign.center,
-                ),
+                child: Text("(Others are still playing. You can watch!)", style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
               )
           ],
         ),
@@ -329,23 +295,22 @@ class _GameBoardState extends State<GameBoard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // EXIT BUTTON
               TextButton(
                 onPressed: () {
                   context.read<GameBloc>().add(LeaveGameEvent(widget.gameId, widget.userId));
                   Navigator.pop(ctx);
                   Navigator.pop(context);
                 },
-                child: const Text("EXIT", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                child: const Text("EXIT GAME", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               ),
-              // CONTINUE WATCHING BUTTON (Only if not loser/game over)
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3E2723)),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                },
-                child: const Text("OK", style: TextStyle(color: Colors.white)),
-              ),
+
+              // Only show "OK" (Stay) if more than 2 players
+              if (canStay)
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3E2723)),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("WATCH", style: TextStyle(color: Colors.white)),
+                ),
             ],
           )
         ],
@@ -358,13 +323,10 @@ class _GameBoardState extends State<GameBoard> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFFD7CCC8),
-        title: const Text("Leave Game?", style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text("You will be removed from the game."),
+        title: const Text("Leave Game?"),
+        content: const Text("You will be removed."),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel"),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
           TextButton(
             onPressed: () {
               context.read<GameBloc>().add(LeaveGameEvent(widget.gameId, widget.userId));
@@ -380,13 +342,12 @@ class _GameBoardState extends State<GameBoard> {
 
   void _showGameOverDialog() {
     if (ModalRoute.of(context)?.isCurrent != true) return;
-
     showDialog(
       barrierDismissible: false,
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Game Over"),
-        content: const Text("Everyone else has left the game!"),
+        content: const Text("Everyone else has left!"),
         actions: [
           TextButton(
             onPressed: () {

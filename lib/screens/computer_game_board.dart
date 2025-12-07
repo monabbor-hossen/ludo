@@ -304,56 +304,87 @@ class _ComputerViewState extends State<ComputerView> {
 }
 
 // --- LOCAL DICE WIDGET ---
+
+// --- 2D LOCAL DICE WIDGET ---
 class LocalDiceWidget extends StatelessWidget {
   final int value;
   final bool isMyTurn;
   final VoidCallback onRoll;
 
-  const LocalDiceWidget({super.key, required this.value, required this.isMyTurn, required this.onRoll});
+  const LocalDiceWidget({
+    super.key,
+    required this.value,
+    required this.isMyTurn,
+    required this.onRoll
+  });
 
   @override
   Widget build(BuildContext context) {
+    // Logic: Enable roll only if it's my turn AND dice is reset (0)
     bool canRoll = isMyTurn && value == 0;
+
+    // Visuals: White if active, Grey if disabled
     Color boxColor = canRoll ? Colors.white : Colors.grey[400]!;
+    Color borderColor = canRoll ? Colors.black : Colors.grey[700]!;
 
     return GestureDetector(
       onTap: canRoll ? onRoll : null,
       child: Container(
-        width: 60, height: 60,
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
           color: boxColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[700]!, width: 2),
+          border: Border.all(color: borderColor, width: 2),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 5, offset: const Offset(2,2))
+            BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 5,
+                offset: const Offset(2,2)
+            )
           ],
         ),
         child: Center(
           child: value == 0
               ? (canRoll
-              ? const Text("ROLL", style: TextStyle(fontWeight: FontWeight.bold))
+              ? const Text(
+              "ROLL",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)
+          )
               : const Icon(Icons.hourglass_bottom, color: Colors.black54))
-              : CustomPaint(size: const Size(50,50), painter: _DotPainter(value)),
+              : CustomPaint(
+            size: const Size(50, 50),
+            painter: _DotPainter(value),
+          ),
         ),
       ),
     );
   }
 }
 
+// --- PAINTER FOR 2D DOTS ---
 class _DotPainter extends CustomPainter {
   final int n;
   _DotPainter(this.n);
+
   @override
   void paint(Canvas c, Size s) {
     final p = Paint()..color = Colors.black;
-    double r = s.width/9, m = s.width/2, l = s.width/4, R = s.width*0.75;
+    double r = s.width / 9;   // Dot radius
+    double m = s.width / 2;   // Middle
+    double l = s.width / 4;   // Left/Top
+    double R = s.width * 0.75; // Right/Bottom
+
     List<Offset> d = [];
-    if(n%2!=0) d.add(Offset(m,m));
-    if(n>1) d.addAll([Offset(l,l), Offset(R,R)]);
-    if(n>3) d.addAll([Offset(l,R), Offset(R,l)]);
-    if(n==6) d.addAll([Offset(l,m), Offset(R,m)]);
-    for(var o in d) c.drawCircle(o, r, p);
+
+    if (n % 2 != 0) d.add(Offset(m, m)); // Center dot for 1, 3, 5
+    if (n > 1) d.addAll([Offset(l, l), Offset(R, R)]); // Diagonal
+    if (n > 3) d.addAll([Offset(l, R), Offset(R, l)]); // Other diagonal
+    if (n == 6) d.addAll([Offset(l, m), Offset(R, m)]); // Middle sides
+
+    for (var o in d) c.drawCircle(o, r, p);
   }
+
   @override
   bool shouldRepaint(covariant CustomPainter old) => false;
 }

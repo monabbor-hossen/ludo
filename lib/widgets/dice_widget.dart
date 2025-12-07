@@ -16,7 +16,6 @@ class DiceWidget extends StatefulWidget {
 }
 
 class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateMixin {
-  // Animation Controller for the spin effect
   late AnimationController _controller;
 
   Timer? _animTimer;
@@ -24,12 +23,14 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
   bool _isRolling = false;
   int _lastServerDiceValue = 0;
 
+  // 1. Track start time to enforce 0.5s duration
+  DateTime? _rollStartTime;
+
   @override
   void initState() {
     super.initState();
-    // Configure a fast spin animation (0.5 seconds per rotation)
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 500), // Speed of one spin
       vsync: this,
     );
   }
@@ -42,22 +43,21 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
   }
 
   // --- 1. START ANIMATION ---
-// Inside lib/widgets/dice_widget.dart
-
   void _startRollingAnim() {
     if (_isRolling) return;
 
-    // --- PLAY ROLL SOUND ---
     AudioService.playRoll();
+
+    // 2. Record the Start Time
+    _rollStartTime = DateTime.now();
 
     setState(() {
       _isRolling = true;
     });
 
-    // A. Start Physical Spin
     _controller.repeat();
 
-    // B. Start Number Flipping
+    // Show random numbers rapidly (every 80ms)
     _animTimer?.cancel();
     _animTimer = Timer.periodic(const Duration(milliseconds: 80), (timer) {
       if (mounted) {
@@ -68,18 +68,28 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
     });
   }
 
-  // --- 2. STOP ANIMATION ---
-  void _stopRollingAnim(int finalValue) {
+  // --- 2. STOP ANIMATION (With Delay) ---
+  Future<void> _stopRollingAnim(int finalValue) async {
+    // 3. Calculate how long we have been rolling
+    if (_rollStartTime != null) {
+      final int minDuration = 500; // 0.5 seconds
+      final int elapsed = DateTime.now().difference(_rollStartTime!).inMilliseconds;
+
+      if (elapsed < minDuration) {
+        // If server replied too fast (e.g. 100ms), wait the remaining 400ms
+        await Future.delayed(Duration(milliseconds: minDuration - elapsed));
+      }
+    }
+
     _animTimer?.cancel();
 
     if (mounted) {
-      // Stop the controller and reset rotation to 0 (Upright)
       _controller.stop();
-      _controller.value = 0;
+      _controller.value = 0; // Reset to upright position
 
       setState(() {
         _isRolling = false;
-        _displayValue = finalValue; // Show real server number
+        _displayValue = finalValue; // Show the REAL number
       });
     }
   }
@@ -137,9 +147,8 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
                 context.read<GameBloc>().add(RollDice(game.gameId));
               }
             },
-            // Apply Rotation Animation to the Container
             child: RotationTransition(
-              turns: _controller, // Binds rotation to controller
+              turns: _controller,
               child: Container(
                 width: 60,
                 height: 60,
