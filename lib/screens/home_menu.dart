@@ -42,7 +42,7 @@ class HomeMenu extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                   decoration: _woodenBoxDecoration(),
                   child: const Text(
-                    "LUDO KING",
+                    "LUDO",
                     style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.w900,
