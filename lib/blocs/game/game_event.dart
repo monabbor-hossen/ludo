@@ -33,3 +33,8 @@ class LeaveGameEvent extends GameEvent {
   final String userId;
   const LeaveGameEvent(this.gameId, this.userId);
 }
+
+class StartComputerGame extends GameEvent {
+  final String userColor;
+  const StartComputerGame(this.userColor);
+}

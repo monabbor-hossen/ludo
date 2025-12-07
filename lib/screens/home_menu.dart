@@ -25,7 +25,7 @@ class HomeMenu extends StatelessWidget {
 
     return Scaffold(
       body: Container(
-        // 1. WOOD BACKGROUND
+        // 1. GLOBAL WOOD BACKGROUND
         decoration: const BoxDecoration(
           image: DecorationImage(
             image: AssetImage('assets/wood.png'),
@@ -33,58 +33,82 @@ class HomeMenu extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 2. APP TITLE (Burnt Wood Look)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                  decoration: _woodenBoxDecoration(),
-                  child: const Text(
-                    "LUDO",
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF3E2723), // Dark Brown
-                      letterSpacing: 2,
-                      shadows: [
-                        Shadow(color: Colors.white54, offset: Offset(1, 1), blurRadius: 0)
-                      ],
+          child: Stack(
+            children: [
+              // A. THE BACK BUTTON (Top Left)
+              Positioned(
+                top: 10,
+                left: 15,
+                child: _buildBackBtn(context),
+              ),
+
+              // B. CENTER CONTENT
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // 2. APP TITLE (Burnt Wood Look)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                      decoration: _woodenBoxDecoration(),
+                      child: const Text(
+                        "ONLINE MODE",
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF3E2723), // Dark Brown
+                          letterSpacing: 2,
+                          shadows: [
+                            Shadow(color: Colors.white54, offset: Offset(1, 1), blurRadius: 0)
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+
+                    const SizedBox(height: 60),
+
+                    // 3. CREATE GAME BUTTON
+                    _buildWoodenButton(
+                      context,
+                      label: "CREATE NEW GAME",
+                      icon: Icons.add_circle,
+                      color: const Color(0xFF4CAF50), // Green tint
+                      onTap: () => _showCreateGameDialog(context, userId),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // 4. JOIN GAME BUTTON
+                    _buildWoodenButton(
+                      context,
+                      label: "JOIN GAME",
+                      icon: Icons.login,
+                      color: const Color(0xFF2196F3), // Blue tint
+                      onTap: () => _showJoinGameDialog(context, userId),
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 60),
-
-                // 3. CREATE GAME BUTTON
-                _buildWoodenButton(
-                  context,
-                  label: "CREATE NEW GAME",
-                  icon: Icons.add_circle,
-                  color: const Color(0xFF4CAF50), // Green tint
-                  onTap: () => _showCreateGameDialog(context, userId),
-                ),
-
-                const SizedBox(height: 20),
-
-                // 4. JOIN GAME BUTTON
-                _buildWoodenButton(
-                  context,
-                  label: "JOIN GAME",
-                  icon: Icons.login,
-                  color: const Color(0xFF2196F3), // Blue tint
-                  onTap: () => _showJoinGameDialog(context, userId),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // --- WIDGET: WOODEN BUTTON ---
+  // --- WIDGET: SMALL BACK BUTTON ---
+  Widget _buildBackBtn(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context), // Go back to Landing Screen
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: _woodenBoxDecoration(),
+        child: const Icon(Icons.arrow_back, color: Color(0xFF3E2723), size: 28),
+      ),
+    );
+  }
+
+  // --- WIDGET: MAIN BUTTON ---
   Widget _buildWoodenButton(BuildContext context, {required String label, required IconData icon, required Color color, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -141,13 +165,13 @@ class HomeMenu extends StatelessWidget {
     );
   }
 
-  // --- DIALOGS (Keep your existing logic, just styling update optional) ---
+  // --- DIALOGS ---
   void _showCreateGameDialog(BuildContext context, String userId) {
     final nameController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFD7CCC8), // Wood color bg
+        backgroundColor: const Color(0xFFD7CCC8),
         title: const Text("Create Game", style: TextStyle(color: Color(0xFF3E2723), fontWeight: FontWeight.bold)),
         content: TextField(
           controller: nameController,
