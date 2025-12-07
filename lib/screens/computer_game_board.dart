@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/computer/computer_game_bloc.dart';
-import '../blocs/game/game_event.dart'; // Ensure StartComputerGame is imported
+import '../blocs/game/game_event.dart';
 import '../blocs/game/game_state.dart';
 import '../widgets/computer_board_layout.dart';
+import '../models/game_model.dart'; // Import for GameModel
 
 class ComputerGameBoard extends StatelessWidget {
   final String userColor;
@@ -30,26 +31,104 @@ class ComputerGameBoard extends StatelessWidget {
   }
 }
 
-class ComputerView extends StatelessWidget {
+class ComputerView extends StatefulWidget {
   const ComputerView({super.key});
 
   @override
+  State<ComputerView> createState() => _ComputerViewState();
+}
+
+class _ComputerViewState extends State<ComputerView> {
+
+  // --- WIN/LOSS DIALOG ---
+  void _showGameEndDialog(BuildContext context, bool userWon) {
+    showDialog(
+      barrierDismissible: false, // Must click button
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFD7CCC8), // Wood Color
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFF5D4037), width: 4),
+        ),
+        title: Center(
+          child: Text(
+            userWon ? "🏆 YOU WON! 🏆" : "💀 YOU LOST 💀",
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              color: userWon ? Colors.green[800] : Colors.red[900],
+            ),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              userWon ? Icons.emoji_events : Icons.sentiment_very_dissatisfied,
+              size: 80,
+              color: userWon ? Colors.amber : Colors.grey,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              userWon
+                  ? "Congratulations! You beat the computer!"
+                  : "Better luck next time!",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3E2723), // Dark Wood
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+              ),
+              onPressed: () {
+                Navigator.pop(ctx); // Close Dialog
+                Navigator.pop(context); // Go back to Landing Screen
+              },
+              child: const Text("EXIT GAME", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocBuilder<ComputerGameBloc, GameState>(
+    return BlocConsumer<ComputerGameBloc, GameState>(
+      // 1. LISTEN FOR GAME OVER
+      listener: (context, state) {
+        if (state is GameLoaded) {
+          if (state.gameModel.status == 'finished') {
+            // Determine who won
+            final game = state.gameModel;
+            final humanPlayer = game.players.firstWhere((p) => p['type'] == 'human');
+            final String humanColor = humanPlayer['color'];
+
+            // Check if Human's tokens are all 99
+            final bool userWon = game.tokens[humanColor]!.every((t) => t == 99);
+
+            _showGameEndDialog(context, userWon);
+          }
+        }
+      },
       builder: (context, state) {
         if (state is GameLoaded) {
           final game = state.gameModel;
-
-          // --- FIX: GET DYNAMIC PLAYER INFO ---
           final currentPlayer = game.players[game.currentTurn];
-          final String turnName = currentPlayer['name'];   // "You" or "Computer"
-          final String turnColor = currentPlayer['color']; // "Red", "Green", etc.
+          final String turnName = currentPlayer['name'];
+          final String turnColor = currentPlayer['color'];
           final bool isHumanTurn = currentPlayer['type'] == 'human';
 
           return SafeArea(
             child: Column(
               children: [
-                // A. CUSTOM WOODEN APP BAR
+                // A. APP BAR
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                   padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
@@ -66,11 +145,7 @@ class ComputerView extends StatelessWidget {
                           const SizedBox(width: 15),
                           const Text(
                             "Vs Computer",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF3E2723),
-                            ),
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF3E2723)),
                           ),
                         ],
                       ),
@@ -79,7 +154,7 @@ class ComputerView extends StatelessWidget {
                   ),
                 ),
 
-                // B. STATUS PLANK (Dynamic Text Fix)
+                // B. STATUS PLANK
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 40),
                   padding: const EdgeInsets.all(10),
@@ -91,10 +166,9 @@ class ComputerView extends StatelessWidget {
                         children: [
                           const TextSpan(text: "Turn: "),
                           TextSpan(
-                            // NOW SHOWS ACTUAL NAME AND COLOR
                             text: "$turnName ($turnColor)",
                             style: TextStyle(
-                              color: _getColor(turnColor), // Matches the color visually
+                              color: _getColor(turnColor),
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
                             ),
@@ -127,7 +201,7 @@ class ComputerView extends StatelessWidget {
 
                 const Spacer(),
 
-                // D. WOODEN CONTROLS AREA
+                // D. CONTROLS
                 Container(
                   height: 140,
                   padding: const EdgeInsets.all(20),
@@ -139,12 +213,10 @@ class ComputerView extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      // Player Info (You)
+                      // Player Info
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                        decoration: _woodenBoxDecoration().copyWith(
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 5)]
-                        ),
+                        decoration: _woodenBoxDecoration(),
                         child: const Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -154,7 +226,7 @@ class ComputerView extends StatelessWidget {
                         ),
                       ),
 
-                      // LOCAL DICE
+                      // DICE
                       Container(
                         padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
@@ -163,7 +235,7 @@ class ComputerView extends StatelessWidget {
                         ),
                         child: LocalDiceWidget(
                           value: game.diceValue,
-                          isMyTurn: isHumanTurn,
+                          isMyTurn: isHumanTurn && game.status != 'finished',
                           onRoll: () {
                             context.read<ComputerGameBloc>().add(const RollDice("OFFLINE"));
                           },
@@ -173,9 +245,7 @@ class ComputerView extends StatelessWidget {
                       // Computer Info
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                        decoration: _woodenBoxDecoration().copyWith(
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 5)]
-                        ),
+                        decoration: _woodenBoxDecoration(),
                         child: const Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -197,7 +267,6 @@ class ComputerView extends StatelessWidget {
   }
 
   // --- HELPERS ---
-
   BoxDecoration _woodenBoxDecoration() {
     return BoxDecoration(
       color: const Color(0xFFD7CCC8),
@@ -225,7 +294,7 @@ class ComputerView extends StatelessWidget {
   }
 }
 
-// --- LOCAL DICE WIDGET (Unchanged) ---
+// --- LOCAL DICE WIDGET ---
 class LocalDiceWidget extends StatelessWidget {
   final int value;
   final bool isMyTurn;

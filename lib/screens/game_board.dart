@@ -22,15 +22,19 @@ class _GameBoardState extends State<GameBoard> {
   // Keep track of IDs we have already shown the "Left" message for
   final Set<String> _notifiedLeftPlayers = {};
 
+  // Prevent showing the win dialog multiple times
+  bool _celebrationShown = false;
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<GameBloc, GameState>(
-      // 1. LISTENER: Handles "Player Left" messages and "Game Over" logic
+      // 1. LISTENER: Handles Left Players, Win, and Loss
       listener: (context, state) {
         if (state is GameLoaded) {
-          final players = state.gameModel.players;
+          final game = state.gameModel;
+          final players = game.players;
 
-          // A. Check for new leavers to show SnackBar
+          // A. Check for new leavers
           for (var p in players) {
             bool hasLeft = p['hasLeft'] ?? false;
             String pid = p['id'];
@@ -48,14 +52,32 @@ class _GameBoardState extends State<GameBoard> {
             }
           }
 
-          // B. Check Game Over
+          // B. CHECK WIN/RANKING STATUS
+          // Only check if we haven't shown the dialog yet
+          if (!_celebrationShown) {
+            // 1. Did I win? (Am I in the winners list?)
+            if (game.winners.contains(widget.userId)) {
+              _celebrationShown = true;
+              int rank = game.winners.indexOf(widget.userId) + 1; // 0 index = 1st place
+              _showCelebrationDialog(rank, false);
+            }
+
+            // 2. Did I lose? (Game finished, and I am NOT in winners list)
+            else if (game.status == 'finished') {
+              _celebrationShown = true;
+              _showCelebrationDialog(0, true); // Rank 0, isLoser = true
+            }
+          }
+
+          // C. Check Game Over (Empty Room Scenario)
+          // (Only triggers if players actually leave via menu, not just finishing game)
           int activePlayers = players.where((p) => p['hasLeft'] != true).length;
-          if (players.length > 1 && activePlayers < 2) {
+          if (players.length > 1 && activePlayers < 2 && game.status != 'finished') {
             _showGameOverDialog();
           }
         }
       },
-      // 2. BUILDER: Draws the Wooden UI
+      // 2. BUILDER
       builder: (context, state) {
         if (state is GameLoaded) {
           final game = state.gameModel;
@@ -64,7 +86,6 @@ class _GameBoardState extends State<GameBoard> {
           final String turnName = currentPlayer['name'] ?? turnColor;
 
           return Scaffold(
-            // GLOBAL WOOD BACKGROUND
             body: Container(
               decoration: const BoxDecoration(
                 image: DecorationImage(
@@ -75,7 +96,7 @@ class _GameBoardState extends State<GameBoard> {
               child: SafeArea(
                 child: Column(
                   children: [
-                    // A. CUSTOM WOODEN APP BAR
+                    // A. APP BAR
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
                       padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
@@ -87,7 +108,6 @@ class _GameBoardState extends State<GameBoard> {
                               "Ludo",
                               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF3E2723))
                           ),
-                          // Exit Button
                           IconButton(
                             icon: const Icon(Icons.exit_to_app, color: Color(0xFF8D6E63), size: 30),
                             onPressed: () => _showLeaveConfirmDialog(game),
@@ -144,7 +164,7 @@ class _GameBoardState extends State<GameBoard> {
 
                     const Spacer(),
 
-                    // D. WOODEN CONTROLS AREA
+                    // D. CONTROLS
                     Container(
                       height: 140,
                       padding: const EdgeInsets.all(20),
@@ -156,7 +176,6 @@ class _GameBoardState extends State<GameBoard> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          // Player Info Plank
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                             decoration: _woodenBoxDecoration().copyWith(
@@ -173,8 +192,6 @@ class _GameBoardState extends State<GameBoard> {
                               ],
                             ),
                           ),
-
-                          // The Dice
                           Container(
                               padding: const EdgeInsets.all(5),
                               decoration: BoxDecoration(
@@ -197,10 +214,10 @@ class _GameBoardState extends State<GameBoard> {
     );
   }
 
-  // --- 1. WOODEN DECORATION HELPER ---
+  // --- HELPERS ---
   BoxDecoration _woodenBoxDecoration() {
     return BoxDecoration(
-      color: const Color(0xFFD7CCC8), // Light wood color base
+      color: const Color(0xFFD7CCC8),
       image: const DecorationImage(
         image: AssetImage('assets/wood.png'),
         fit: BoxFit.cover,
@@ -214,7 +231,6 @@ class _GameBoardState extends State<GameBoard> {
     );
   }
 
-  // --- 2. COLOR HELPERS ---
   String _getMyColor(GameModel game, String userId) {
     final me = game.players.firstWhere(
             (p) => p['id'] == userId,
@@ -231,12 +247,118 @@ class _GameBoardState extends State<GameBoard> {
     return Colors.black;
   }
 
-  // --- 3. DIALOGS ---
+  // --- DIALOGS ---
+
+  // 1. CELEBRATION / RANKING DIALOG (NEW)
+  void _showCelebrationDialog(int rank, bool isLoser) {
+    String title;
+    String message;
+    Color color;
+    IconData icon;
+
+    if (isLoser) {
+      title = "😢 YOU LOST 😢";
+      message = "Better luck next time!";
+      color = Colors.red;
+      icon = Icons.sentiment_very_dissatisfied;
+    } else {
+      switch (rank) {
+        case 1:
+          title = "🏆 1st PLACE! 🏆";
+          message = "Champion! You won the game!";
+          color = Colors.amber;
+          icon = Icons.emoji_events;
+          break;
+        case 2:
+          title = "🥈 2nd PLACE! 🥈";
+          message = "Great job! You finished 2nd.";
+          color = const Color(0xFFB0BEC5); // Silver
+          icon = Icons.emoji_events;
+          break;
+        case 3:
+          title = "🥉 3rd PLACE! 🥉";
+          message = "Good game! You finished 3rd.";
+          color = const Color(0xFF8D6E63); // Bronze
+          icon = Icons.emoji_events;
+          break;
+        default:
+          title = "WINNER!";
+          message = "You finished the game!";
+          color = Colors.amber;
+          icon = Icons.star;
+      }
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Must tap button
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFD7CCC8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFF5D4037), width: 3),
+        ),
+        title: Center(
+          child: Text(
+            title,
+            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: color, shadows: const [Shadow(color: Colors.black26, blurRadius: 2)]),
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 70, color: color),
+            const SizedBox(height: 20),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF3E2723)),
+            ),
+            if (!isLoser)
+              const Padding(
+                padding: EdgeInsets.only(top: 15),
+                child: Text(
+                  "(You can stay and watch the others finish!)",
+                  style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black54),
+                  textAlign: TextAlign.center,
+                ),
+              )
+          ],
+        ),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // EXIT BUTTON
+              TextButton(
+                onPressed: () {
+                  context.read<GameBloc>().add(LeaveGameEvent(widget.gameId, widget.userId));
+                  Navigator.pop(ctx);
+                  Navigator.pop(context);
+                },
+                child: const Text("EXIT", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              ),
+              // CONTINUE WATCHING BUTTON (Only if not loser/game over)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3E2723)),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                },
+                child: const Text("OK", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
   void _showLeaveConfirmDialog(GameModel game) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Leave Game?"),
+        backgroundColor: const Color(0xFFD7CCC8),
+        title: const Text("Leave Game?", style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text("You will be removed from the game."),
         actions: [
           TextButton(
@@ -264,7 +386,7 @@ class _GameBoardState extends State<GameBoard> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Game Over"),
-        content: const Text("Everyone else has left the game! You win!"),
+        content: const Text("Everyone else has left the game!"),
         actions: [
           TextButton(
             onPressed: () {

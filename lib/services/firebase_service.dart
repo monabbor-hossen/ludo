@@ -5,7 +5,7 @@ import '../models/game_model.dart';
 class FirebaseService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // 1. Create Game (Now accepts playerName)
+  // 1. Create Game
   Future<String> createGame(String userId, String playerName) async {
     String gameId = const Uuid().v4().substring(0, 6).toUpperCase();
 
@@ -14,12 +14,14 @@ class FirebaseService {
       'currentTurn': 0,
       'diceValue': 0,
       'diceRolledBy': '',
+      'winners': [], // <--- NEW: Initialize winners list
       'players': [
         {
           'id': userId,
           'color': 'Red',
-          'name': playerName, // <--- SAVING NAME
-          'isAuto': false
+          'name': playerName,
+          'isAuto': false,
+          'hasLeft': false
         }
       ],
       'tokens': {
@@ -32,7 +34,7 @@ class FirebaseService {
     return gameId;
   }
 
-  // 2. Join Game (Now accepts playerName)
+  // 2. Join Game
   Future<void> joinGame(String gameId, String userId, String playerName) async {
     DocumentSnapshot doc = await _db.collection('games').doc(gameId).get();
 
@@ -54,16 +56,93 @@ class FirebaseService {
         {
           'id': userId,
           'color': nextColor,
-          'name': playerName, // <--- THIS SAVES IT TO THE CLOUD
-          'isAuto': false
+          'name': playerName,
+          'isAuto': false,
+          'hasLeft': false
         }
       ])
     });
   }
 
-  // ... (Keep streamGame and updateGameState as they were) ...
+  // 3. Move Token (Handles Winning & Turn Switching)
+  Future<void> moveToken(String gameId, String userId, int tokenIndex, int newValue) async {
+    DocumentReference gameRef = _db.collection('games').doc(gameId);
+
+    await _db.runTransaction((transaction) async {
+      DocumentSnapshot snapshot = await transaction.get(gameRef);
+      if (!snapshot.exists) return;
+
+      Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+
+      List players = List.from(data['players']);
+      Map<String, dynamic> tokens = Map.from(data['tokens']);
+      List<String> winners = List<String>.from(data['winners'] ?? []);
+      String status = data['status'];
+      int currentTurn = data['currentTurn'];
+      int diceValue = data['diceValue'];
+
+      // A. UPDATE TOKEN POSITION
+      String playerColor = players.firstWhere((p) => p['id'] == userId)['color'];
+      List<int> playerTokens = List<int>.from(tokens[playerColor]);
+      playerTokens[tokenIndex] = newValue;
+      tokens[playerColor] = playerTokens;
+
+      // B. CHECK IF PLAYER WON (All tokens at 99)
+      bool hasFinished = playerTokens.every((pos) => pos == 99);
+
+      if (hasFinished && !winners.contains(userId)) {
+        winners.add(userId); // Add to ranking
+      }
+
+      // C. CHECK GAME OVER CONDITION
+      // Game ends when only 1 person is left playing
+      int activePlayersCount = players.where((p) => p['hasLeft'] != true).length;
+      if (winners.length >= activePlayersCount - 1) {
+        status = 'finished';
+      }
+
+      // D. CALCULATE NEXT TURN
+      // If dice is 6, same player plays again (unless they finished)
+      // Otherwise, find the next player who hasn't won and hasn't left.
+      if (status != 'finished') {
+        bool extraTurn = (diceValue == 6 && !hasFinished);
+
+        if (!extraTurn) {
+          int nextIndex = currentTurn;
+          int attempts = 0;
+
+          do {
+            nextIndex = (nextIndex + 1) % players.length;
+            String nextPlayerId = players[nextIndex]['id'];
+
+            bool hasLeft = players[nextIndex]['hasLeft'] ?? false;
+            bool alreadyWon = winners.contains(nextPlayerId);
+
+            // Valid player found if they haven't left and haven't won
+            if (!hasLeft && !alreadyWon) {
+              currentTurn = nextIndex;
+              break;
+            }
+            attempts++;
+          } while (attempts < players.length);
+        }
+      }
+
+      // E. COMMIT UPDATES
+      transaction.update(gameRef, {
+        'tokens': tokens,
+        'winners': winners,
+        'status': status,
+        'currentTurn': currentTurn,
+        'diceValue': 0, // Reset dice after move
+      });
+    });
+  }
+
+  // ... Existing Streams ...
   Stream<GameModel> streamGame(String gameId) {
     return _db.collection('games').doc(gameId).snapshots().map((snapshot) {
+      if (!snapshot.exists) throw Exception("Game deleted");
       return GameModel.fromJson(snapshot.data()!, snapshot.id);
     });
   }
@@ -81,21 +160,19 @@ class FirebaseService {
 
       Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
       List players = List.from(data['players']);
-      Map<String, dynamic> tokens = Map.from(data['tokens']); // Get tokens
+      Map<String, dynamic> tokens = Map.from(data['tokens']);
       int currentTurn = data['currentTurn'];
 
-      // 1. Find the player
       int playerIndex = players.indexWhere((p) => p['id'] == userId);
       if (playerIndex == -1) return;
 
-      // 2. Mark as Left
       players[playerIndex]['hasLeft'] = true;
 
-      // 3. RESET TOKENS TO HOME (This triggers the animation)
+      // Reset Tokens
       String color = players[playerIndex]['color'];
-      tokens[color] = [0, 0, 0, 0]; // Send all 4 tokens back to start
+      tokens[color] = [0, 0, 0, 0];
 
-      // 4. Pass Turn if needed
+      // Pass Turn if needed
       if (currentTurn == playerIndex) {
         int nextTurn = currentTurn;
         for (int i = 0; i < players.length; i++) {
@@ -107,10 +184,9 @@ class FirebaseService {
         }
       }
 
-      // 5. Update Database
       transaction.update(docRef, {
         'players': players,
-        'tokens': tokens, // Save the reset tokens
+        'tokens': tokens,
         'currentTurn': currentTurn,
         'diceValue': 0,
       });

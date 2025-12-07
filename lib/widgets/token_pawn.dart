@@ -4,31 +4,32 @@ class TokenPawn extends StatelessWidget {
   final String colorName;
   final int tokenIndex;
   final bool isDimmed;
+  final bool showNumber; // <--- 1. NEW PARAMETER
 
   const TokenPawn({
     super.key,
     required this.colorName,
     required this.tokenIndex,
     required this.isDimmed,
+    this.showNumber = true, // <--- 2. DEFAULT IS TRUE (For the board)
   });
 
   @override
   Widget build(BuildContext context) {
     Color baseColor = _getColor(colorName);
 
-    // --- UPDATED OPACITY LOGIC ---
     if (isDimmed) {
-      // Changed from 0.5 to 0.8 as requested
       baseColor = baseColor.withOpacity(0.8);
     }
 
     return CustomPaint(
       painter: _PawnPainter(color: baseColor),
       child: Center(
-        child: Text(
+        // <--- 3. ONLY SHOW TEXT IF showNumber IS TRUE
+        child: showNumber
+            ? Text(
           "${tokenIndex + 1}",
           style: TextStyle(
-            // Adjust text opacity slightly to match the body
             color: Colors.white.withOpacity(isDimmed ? 0.9 : 1.0),
             fontSize: 12,
             fontWeight: FontWeight.bold,
@@ -40,7 +41,8 @@ class TokenPawn extends StatelessWidget {
               ),
             ],
           ),
-        ),
+        )
+            : null, // Don't show anything in the center
       ),
     );
   }
@@ -67,33 +69,26 @@ class _PawnPainter extends CustomPainter {
     final double w = size.width;
     final double h = size.height;
 
-    // Colors for 3D effect
     final Color lighterColor = Color.lerp(color, Colors.white, 0.3)!;
     final Color darkerColor = Color.lerp(color, Colors.black, 0.2)!;
     final Color shadowColor = Colors.black.withOpacity(0.3);
 
-    // 1. Draw Shadow (Oval at the bottom)
+    // 1. Shadow
     paint.color = shadowColor;
     paint.maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    canvas.drawOval(
-      Rect.fromLTWH(w * 0.1, h * 0.85, w * 0.8, h * 0.15),
-      paint,
-    );
-    paint.maskFilter = null; // Reset mask filter
+    canvas.drawOval(Rect.fromLTWH(w * 0.1, h * 0.85, w * 0.8, h * 0.15), paint);
+    paint.maskFilter = null;
 
-    // 2. Draw Base (Flat oval)
+    // 2. Base
     paint.color = darkerColor;
-    canvas.drawOval(
-      Rect.fromLTWH(w * 0.2, h * 0.75, w * 0.6, h * 0.15),
-      paint,
-    );
+    canvas.drawOval(Rect.fromLTWH(w * 0.2, h * 0.75, w * 0.6, h * 0.15), paint);
 
-    // 3. Draw Body (Tapered cylinder shape using Path and Linear Gradient)
+    // 3. Body
     final Path bodyPath = Path()
-      ..moveTo(w * 0.3, h * 0.4) // Top-left of body
-      ..lineTo(w * 0.25, h * 0.8) // Bottom-left of body
-      ..quadraticBezierTo(w * 0.5, h * 0.9, w * 0.75, h * 0.8) // Bottom curve
-      ..lineTo(w * 0.7, h * 0.4) // Top-right of body
+      ..moveTo(w * 0.3, h * 0.4)
+      ..lineTo(w * 0.25, h * 0.8)
+      ..quadraticBezierTo(w * 0.5, h * 0.9, w * 0.75, h * 0.8)
+      ..lineTo(w * 0.7, h * 0.4)
       ..close();
 
     paint.shader = LinearGradient(
@@ -103,25 +98,22 @@ class _PawnPainter extends CustomPainter {
       stops: const [0.0, 0.5, 1.0],
     ).createShader(Rect.fromLTWH(0, h * 0.4, w, h * 0.5));
     canvas.drawPath(bodyPath, paint);
-    paint.shader = null; // Reset shader
+    paint.shader = null;
 
-    // 4. Draw Head (Sphere using Radial Gradient for 3D effect)
+    // 4. Head
     final Rect headRect = Rect.fromLTWH(w * 0.15, 0, w * 0.7, h * 0.6);
     paint.shader = RadialGradient(
-      center: const Alignment(-0.4, -0.4), // "Light source" from top-left
+      center: const Alignment(-0.4, -0.4),
       radius: 0.8,
       colors: [Colors.white, lighterColor, color],
       stops: const [0.0, 0.3, 1.0],
     ).createShader(headRect);
     canvas.drawOval(headRect, paint);
-    paint.shader = null; // Reset shader
+    paint.shader = null;
 
-    // 5. Specular highlight
+    // 5. Highlight
     paint.color = Colors.white.withOpacity(0.6);
-    canvas.drawOval(
-      Rect.fromLTWH(w * 0.3, h * 0.1, w * 0.2, h * 0.15),
-      paint,
-    );
+    canvas.drawOval(Rect.fromLTWH(w * 0.3, h * 0.1, w * 0.2, h * 0.15), paint);
   }
 
   @override

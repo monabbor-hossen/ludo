@@ -9,6 +9,9 @@ class GameModel extends Equatable {
   final Map<String, List<int>> tokens; // {'Red': [0,0,0,0], 'Green': ...}
   final List<Map<String, dynamic>> players; // [{'id': '...', 'color': 'Red', ...}]
 
+  // --- NEW FIELD: Track winners in order ---
+  final List<String> winners; // ["PlayerID_1st", "PlayerID_2nd", ...]
+
   const GameModel({
     required this.gameId,
     required this.status,
@@ -17,9 +20,10 @@ class GameModel extends Equatable {
     this.diceRolledBy,
     required this.tokens,
     required this.players,
+    required this.winners, // <--- Add this
   });
 
-  // --- 1. FROM JSON (Fixes your Error) ---
+  // --- 1. FROM JSON ---
   factory GameModel.fromJson(Map<String, dynamic> json, String id) {
     // Safely convert the 'tokens' map from dynamic to List<int>
     Map<String, List<int>> parsedTokens = {};
@@ -38,10 +42,12 @@ class GameModel extends Equatable {
       diceRolledBy: json['diceRolledBy'],
       tokens: parsedTokens,
       players: List<Map<String, dynamic>>.from(json['players'] ?? []),
+      // Parse the winners list safely
+      winners: List<String>.from(json['winners'] ?? []),
     );
   }
 
-  // --- 2. TO JSON (Required for saving to Firebase) ---
+  // --- 2. TO JSON ---
   Map<String, dynamic> toJson() {
     return {
       'gameId': gameId,
@@ -51,10 +57,11 @@ class GameModel extends Equatable {
       'diceRolledBy': diceRolledBy,
       'tokens': tokens,
       'players': players,
+      'winners': winners, // <--- Add this
     };
   }
 
-  // --- 3. COPY WITH (Required for State Updates) ---
+  // --- 3. COPY WITH ---
   GameModel copyWith({
     String? gameId,
     String? status,
@@ -63,6 +70,7 @@ class GameModel extends Equatable {
     String? diceRolledBy,
     Map<String, List<int>>? tokens,
     List<Map<String, dynamic>>? players,
+    List<String>? winners, // <--- Add argument
   }) {
     return GameModel(
       gameId: gameId ?? this.gameId,
@@ -72,6 +80,20 @@ class GameModel extends Equatable {
       diceRolledBy: diceRolledBy ?? this.diceRolledBy,
       tokens: tokens ?? this.tokens,
       players: players ?? this.players,
+      winners: winners ?? this.winners, // <--- Update value
+    );
+  }
+
+  // Helper for empty state
+  static GameModel empty() {
+    return const GameModel(
+      gameId: '',
+      status: 'initial',
+      currentTurn: 0,
+      diceValue: 0,
+      tokens: {},
+      players: [],
+      winners: [],
     );
   }
 
@@ -83,6 +105,7 @@ class GameModel extends Equatable {
     diceValue,
     diceRolledBy,
     tokens,
-    players
+    players,
+    winners, // <--- Add to props for equality checks
   ];
 }

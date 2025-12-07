@@ -54,6 +54,7 @@ class ComputerGameBloc extends Bloc<GameEvent, GameState> {
       diceRolledBy: "",
       tokens: tokens,
       players: players,
+      winners: [], // <--- FIXED: ADDED MISSING ARGUMENT
     );
 
     emit(GameLoaded(game));
@@ -64,6 +65,9 @@ class ComputerGameBloc extends Bloc<GameEvent, GameState> {
     if (state is! GameLoaded) return;
     final currentState = state as GameLoaded;
     var game = currentState.gameModel;
+
+    // Stop if game is finished
+    if (game.status == 'finished') return;
 
     // Generate Roll
     int roll = Random().nextInt(6) + 1;
@@ -78,7 +82,6 @@ class ComputerGameBloc extends Bloc<GameEvent, GameState> {
     // Check if move is possible
     String color = game.players[game.currentTurn]['color'];
 
-    // --- CALLING THE HELPER METHOD HERE ---
     bool canMove = _canAnyTokenMove(game.tokens[color]!, roll, color);
 
     if (!canMove) {
@@ -126,6 +129,28 @@ class ComputerGameBloc extends Bloc<GameEvent, GameState> {
     // Check Kills
     allTokens = _engine.checkKill(allTokens, color, newPos);
 
+    // --- CHECK WINNER (Offline Mode) ---
+    bool hasWon = tokens.every((pos) => pos == 99);
+    List<String> currentWinners = List.from(game.winners);
+
+    if (hasWon) {
+      // Add current player to winners
+      String playerId = game.players[game.currentTurn]['id'];
+      if (!currentWinners.contains(playerId)) {
+        currentWinners.add(playerId);
+      }
+
+      // End game immediately in Computer Mode
+      game = game.copyWith(
+        tokens: allTokens,
+        diceValue: 0,
+        status: 'finished',
+        winners: currentWinners,
+      );
+      emit(GameLoaded(game));
+      return;
+    }
+
     // Determine Turn (Extra turn on 6)
     if (game.diceValue != 6) {
       nextTurn = (game.currentTurn + 1) % game.players.length;
@@ -136,6 +161,7 @@ class ComputerGameBloc extends Bloc<GameEvent, GameState> {
       tokens: allTokens,
       diceValue: 0,
       currentTurn: nextTurn,
+      winners: currentWinners,
     );
 
     emit(GameLoaded(game));
@@ -145,6 +171,8 @@ class ComputerGameBloc extends Bloc<GameEvent, GameState> {
   }
 
   void _checkBotTurn(GameModel game) {
+    if (game.status == 'finished') return;
+
     if (game.players[game.currentTurn]['type'] == 'bot') {
       Future.delayed(const Duration(seconds: 1), () {
         add(RollDice("OFFLINE"));
@@ -152,7 +180,7 @@ class ComputerGameBloc extends Bloc<GameEvent, GameState> {
     }
   }
 
-  // --- HELPER METHODS (Must be inside the Class) ---
+  // --- HELPER METHODS ---
 
   bool _canAnyTokenMove(List<int> tokens, int dice, String color) {
     for (int pos in tokens) {

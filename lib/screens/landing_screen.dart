@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:ludo/screens/computer_game_board.dart';
-import 'home_menu.dart'; // Navigates to Online Menu
+import 'home_menu.dart';
+import 'computer_game_board.dart';
+// --- IMPORT YOUR TOKEN PAWN WIDGET ---
+import '../widgets/token_pawn.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -26,7 +28,7 @@ class _LandingScreenState extends State<LandingScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // A. TOP BAR (Settings & Sound)
+              // A. TOP BAR
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 child: Row(
@@ -38,9 +40,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     ),
                     _buildSmallWoodenBtn(
                       icon: _isSoundOn ? Icons.volume_up : Icons.volume_off,
-                      onTap: () {
-                        setState(() => _isSoundOn = !_isSoundOn);
-                      },
+                      onTap: () => setState(() => _isSoundOn = !_isSoundOn),
                     ),
                   ],
                 ),
@@ -48,7 +48,7 @@ class _LandingScreenState extends State<LandingScreen> {
 
               const SizedBox(height: 20),
 
-              // B. GAME LOGO (Large Plank)
+              // B. GAME LOGO
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 25),
                 decoration: _woodenBoxDecoration().copyWith(
@@ -58,14 +58,14 @@ class _LandingScreenState extends State<LandingScreen> {
                 ),
                 child: const Column(
                   children: [
-                    Icon(Icons.casino, size: 50, color: Color(0xFF3E2723)), // Dice Icon
+                    Icon(Icons.casino, size: 50, color: Color(0xFF3E2723)),
                     Text(
-                      "Goriber\nLUDO",
+                      "LUDO\nMASTER",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 40,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF3E2723), // Dark Brown
+                        color: Color(0xFF3E2723),
                         height: 0.9,
                         letterSpacing: 4,
                         shadows: [
@@ -84,7 +84,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3E2723).withOpacity(0.85), // Dark overlay
+                  color: const Color(0xFF3E2723).withOpacity(0.85),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFF8D6E63), width: 3),
                 ),
@@ -96,7 +96,7 @@ class _LandingScreenState extends State<LandingScreen> {
                       title: "PLAY ONLINE",
                       subtitle: "Multiplayer with Friends",
                       icon: Icons.public,
-                      color: const Color(0xFF43A047), // Green
+                      color: const Color(0xFF43A047),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -108,14 +108,13 @@ class _LandingScreenState extends State<LandingScreen> {
                     const SizedBox(height: 20),
 
                     // BUTTON 2: WITH COMPUTER
-                    // BUTTON 2: WITH COMPUTER
                     _buildMainButton(
                       context,
                       title: "VS COMPUTER",
                       subtitle: "Offline Mode",
                       icon: Icons.computer,
                       color: const Color(0xFFE53935),
-                      onTap: () => _showColorPickerDialog(context), // <--- New Function
+                      onTap: () => _showColorPickerDialog(context), // Open Color Picker
                     ),
                   ],
                 ),
@@ -123,7 +122,6 @@ class _LandingScreenState extends State<LandingScreen> {
 
               const Spacer(),
 
-              // D. BOTTOM INFO
               Padding(
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Text(
@@ -138,7 +136,93 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  // --- WIDGET: MAIN MENU BUTTON ---
+  // --- COLOR PICKER DIALOG ---
+  void _showColorPickerDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFFD7CCC8), // Light Wood Color
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: const BorderSide(color: Color(0xFF5D4037), width: 3),
+        ),
+        title: const Center(
+            child: Text(
+                "Choose Your Token",
+                style: TextStyle(color: Color(0xFF3E2723), fontWeight: FontWeight.bold)
+            )
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "The computer will play the opposite side.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF5D4037)),
+            ),
+            const SizedBox(height: 25),
+
+            // Row 1
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _pawnSelectionBtn(ctx, 'Red'),
+                _pawnSelectionBtn(ctx, 'Green'),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Row 2
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _pawnSelectionBtn(ctx, 'Blue'),
+                _pawnSelectionBtn(ctx, 'Yellow'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- PAWN SELECTION BUTTON HELPER ---
+  Widget _pawnSelectionBtn(BuildContext ctx, String colorName) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(ctx);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ComputerGameBoard(userColor: colorName)),
+        );
+      },
+      child: Column(
+        children: [
+          // THE 3D PAWN WIDGET
+          SizedBox(
+            width: 50,
+            height: 50,
+            child: TokenPawn(
+              colorName: colorName,
+              tokenIndex: 0,
+              isDimmed: false,
+              showNumber: false, // <--- THIS HIDES THE NUMBER!
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Label
+          Text(
+            colorName,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF3E2723),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  // --- OTHER WIDGET HELPERS (Unchanged) ---
   Widget _buildMainButton(BuildContext context, {required String title, required String subtitle, required IconData icon, required Color color, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -149,7 +233,7 @@ class _LandingScreenState extends State<LandingScreen> {
           image: const DecorationImage(
             image: AssetImage('assets/wood.png'),
             fit: BoxFit.cover,
-            opacity: 0.15, // Texture
+            opacity: 0.15,
           ),
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
@@ -197,7 +281,6 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  // --- WIDGET: SMALL TOP BUTTON ---
   Widget _buildSmallWoodenBtn({required IconData icon, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -209,7 +292,6 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  // --- HELPER: WOODEN STYLE ---
   BoxDecoration _woodenBoxDecoration() {
     return BoxDecoration(
       color: const Color(0xFFD7CCC8),
@@ -239,61 +321,6 @@ class _LandingScreenState extends State<LandingScreen> {
             child: const Text("Close", style: TextStyle(color: Color(0xFF3E2723))),
           )
         ],
-      ),
-    );
-  }
-  void _showColorPickerDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFFD7CCC8), // Wood color
-        title: const Text("Choose Your Color", style: TextStyle(color: Color(0xFF3E2723), fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("The computer will play the opposite side."),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _colorBtn(ctx, 'Red', Colors.red),
-                _colorBtn(ctx, 'Green', Colors.green),
-              ],
-            ),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _colorBtn(ctx, 'Blue', Colors.blue),
-                _colorBtn(ctx, 'Yellow', Colors.amber),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _colorBtn(BuildContext ctx, String color, Color colorVal) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pop(ctx); // Close Dialog
-        // Navigate to Game with selected color
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => ComputerGameBoard(userColor: color)),
-        );
-      },
-      child: CircleAvatar(
-        radius: 30,
-        backgroundColor: colorVal,
-        child: Container(
-          decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(2,2))]
-          ),
-        ),
       ),
     );
   }
