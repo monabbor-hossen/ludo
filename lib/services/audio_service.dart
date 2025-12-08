@@ -2,34 +2,51 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart'; // For kIsWeb
 
 class AudioService {
-  static final AudioPlayer _player = AudioPlayer();
+  // Player 1: For Moving, Killing, Winning
+  static final AudioPlayer _sfxPlayer = AudioPlayer();
 
-  // 1. Define filenames WITHOUT 'assets/'
+  // Player 2: DEDICATED for Dice (So it never waits for other sounds)
+  static final AudioPlayer _dicePlayer = AudioPlayer();
+
   static const String _rollFile = 'audio/dice_roll.mp3';
   static const String _moveFile = 'audio/piece_move.mp3';
   static const String _killFile = 'audio/kill.mp3';
   static const String _winFile = 'audio/win.mp3';
 
-  static Future<void> _playSound(String file) async {
+  // --- 1. GENERIC SOUNDS (Move, Kill, Win) ---
+  static Future<void> _playSfx(String file) async {
     try {
-      if (file != _winFile) await _player.stop();
-
-      // 2. WEB SPECIFIC FIX
-      if (kIsWeb) {
-        // On Web, we force the full relative URL.
-        // Try './assets/' to force it to look relative to index.html
-        await _player.play(UrlSource('./assets/$file'));
-      } else {
-        // On Mobile, AssetSource automatically adds 'assets/' prefix
-        await _player.play(AssetSource(file));
+      // Only stop if it's the long win sound, otherwise Fire-and-Forget
+      if (file == _winFile) {
+        await _sfxPlayer.stop();
       }
+
+      Source source = kIsWeb ? UrlSource('./assets/$file') : AssetSource(file);
+
+      await _sfxPlayer.setVolume(1.0);
+      await _sfxPlayer.play(source);
     } catch (e) {
-      debugPrint("🔴 Audio Error: $e");
+      debugPrint("🔴 SFX Error: $e");
     }
   }
 
-  static Future<void> playRoll() async => await _playSound(_rollFile);
-  static Future<void> playMove() async => await _playSound(_moveFile);
-  static Future<void> playKill() async => await _playSound(_killFile);
-  static Future<void> playWin() async => await _playSound(_winFile);
+  // --- 2. DICE SOUND (Dedicated Logic) ---
+  static Future<void> playRoll() async {
+    try {
+      // Stop any previous roll (if you spam click)
+      await _dicePlayer.stop();
+
+      Source source = kIsWeb ? UrlSource('./assets/$_rollFile') : AssetSource(_rollFile);
+
+      await _dicePlayer.setVolume(1.0);
+      await _dicePlayer.play(source);
+    } catch (e) {
+      debugPrint("🔴 Dice Audio Error: $e");
+    }
+  }
+
+  // --- Public Methods ---
+  static Future<void> playMove() async => await _playSfx(_moveFile);
+  static Future<void> playKill() async => await _playSfx(_killFile);
+  static Future<void> playWin() async => await _playSfx(_winFile);
 }

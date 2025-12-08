@@ -75,11 +75,8 @@ class _AnimatedTokenState extends State<AnimatedToken> with SingleTickerProvider
   }
 
   Future<void> _animateToNewPosition(int start, int end) async {
-    // --- FIX IS HERE ---
-
-    // Case 1: Spawning (0 -> Start) OR Killing (Pos -> 0)
-    // We do NOT want to walk the steps between 0 and 14.
-    // We want to jump directly.
+    // 1. SPAWN / KILL LOGIC (Instant Jump)
+    // If coming from Home (0) or going to Home (0), do not walk.
     if (start == 0 || end == 0) {
       if (mounted) {
         setState(() {
@@ -87,32 +84,35 @@ class _AnimatedTokenState extends State<AnimatedToken> with SingleTickerProvider
           _updateCoordinates(end);
         });
 
-        // Optional: Play a sound for spawning/killing
+        // Play appropriate sound
         if (end != 0) AudioService.playMove();
         else AudioService.playKill();
 
-        // Little visual pop
+        // Visual Pop
         _bounceController.forward(from: 0);
       }
       return;
     }
 
-    // Case 2: Normal Walking (e.g., 14 -> 16)
+    // 2. NORMAL WALKING
     int steps = end - start;
 
-    // Sanity check: If steps are too large (glitch), don't walk
+    // Sanity check: If the jump is weird (negative or too huge), just teleport.
     if (steps < 0 || steps > 6) {
-      setState(() {
-        _visualPosition = end;
-        _updateCoordinates(end);
-      });
+      if (mounted) {
+        setState(() {
+          _visualPosition = end;
+          _updateCoordinates(end);
+        });
+      }
       return;
     }
 
-    // Walk step-by-step
+    // 3. STEP-BY-STEP LOOP
     for (int i = 1; i <= steps; i++) {
       if (!mounted) return;
 
+      // --- DEFINING THE VARIABLE HERE ---
       int nextStep = start + i;
 
       setState(() {
@@ -123,10 +123,11 @@ class _AnimatedTokenState extends State<AnimatedToken> with SingleTickerProvider
       _bounceController.forward(from: 0); // Visual Pop
       AudioService.playMove(); // Sound
 
-      await Future.delayed(const Duration(milliseconds: 250)); // Walk Speed
+      // 4. SYNC ADJUSTMENT
+      // 200ms usually matches the "Tick" sound better than 250ms
+      await Future.delayed(const Duration(milliseconds: 200));
     }
   }
-
   void _updateCoordinates(int pos) {
     double centeringOffset = (widget.cellSize - widget.tokenSize) / 2;
     double l = 0;
