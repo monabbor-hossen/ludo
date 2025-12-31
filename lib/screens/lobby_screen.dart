@@ -91,7 +91,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                             margin: const EdgeInsets.only(bottom: 10),
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.8), // Light wood slat
+                                color: Colors.white.withValues(alpha:0.8), // Light wood slat
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: const Color(0xFF5D4037), width: 1),
                                 boxShadow: const [BoxShadow(color: Colors.black26, offset: Offset(1, 2), blurRadius: 3)]
@@ -100,7 +100,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                               leading: CircleAvatar(
                                 backgroundColor: _getColor(p['color']),
                                 radius: 20,
-                                child: Icon(Icons.person, color: Colors.white.withOpacity(0.8)),
+                                child: Icon(Icons.person, color: Colors.white.withValues(alpha:0.8)),
                               ),
                               title: Text(
                                   "${p['name']}",

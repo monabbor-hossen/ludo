@@ -215,7 +215,7 @@ class _ComputerViewState extends State<ComputerView> {
                             child: Container(
                               decoration: BoxDecoration(
                                 boxShadow: [
-                                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, spreadRadius: 2)
+                                  BoxShadow(color: Colors.black.withValues(alpha:0.2), blurRadius: 15, spreadRadius: 2)
                                 ],
                               ),
                               child: ComputerBoardLayout(
@@ -233,7 +233,7 @@ class _ComputerViewState extends State<ComputerView> {
                       height: 140,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3E2723).withOpacity(0.8),
+                        color: const Color(0xFF3E2723).withValues(alpha:0.8),
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
                         border: const Border(top: BorderSide(color: Color(0xFF8D6E63), width: 4)),
                       ),
@@ -254,7 +254,7 @@ class _ComputerViewState extends State<ComputerView> {
                           Container(
                             padding: const EdgeInsets.all(5),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Colors.white.withValues(alpha:0.1),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: DiceWidget(
@@ -320,7 +320,7 @@ class _ComputerViewState extends State<ComputerView> {
                         Switch(
                           value: _isSoundOn, // Linked to the correct logic
                           // COLORS
-                          activeColor: const Color(0xFF2E7D32),       // Green (ON)
+                          activeThumbColor: const Color(0xFF2E7D32),       // Green (ON)
                           activeTrackColor: const Color(0xFFA5D6A7),
                           inactiveThumbColor: const Color(0xFF5D4037), // Brown (OFF)
                           inactiveTrackColor: const Color(0xFFBCAAA4),

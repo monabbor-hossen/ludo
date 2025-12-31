@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../logic/path_constants.dart';
 
 class LudoBoardPainter extends CustomPainter {
   final List<Map<String, dynamic>> players;
@@ -53,7 +52,7 @@ class LudoBoardPainter extends CustomPainter {
 
   void _drawBase(Canvas canvas, int col, int row, Color color, String colorName, double cellSize) {
     // A. Colored Base (Use opacity to let wood grain show through)
-    final Paint paint = Paint()..style = PaintingStyle.fill..color = color.withOpacity(0.85);
+    final Paint paint = Paint()..style = PaintingStyle.fill..color = color.withValues(alpha:0.85);
 
     canvas.drawRect(
       Rect.fromLTWH(col * cellSize, row * cellSize, 6 * cellSize, 6 * cellSize),
@@ -64,7 +63,7 @@ class LudoBoardPainter extends CustomPainter {
     // We use a transparent white overlay to lighten the wood underneath
     canvas.drawRect(
       Rect.fromLTWH((col + 1) * cellSize, (row + 1) * cellSize, 4 * cellSize, 4 * cellSize),
-      Paint()..color = Colors.white.withOpacity(0.2),
+      Paint()..color = Colors.white.withValues(alpha:0.2),
     );
 
     // Draw Border around inner box
@@ -84,9 +83,9 @@ class LudoBoardPainter extends CustomPainter {
 
     for (var offset in offsets) {
       // The "Hole" (Shadow)
-      canvas.drawCircle(offset, cellSize * 0.35, Paint()..color = Colors.black.withOpacity(0.3));
+      canvas.drawCircle(offset, cellSize * 0.35, Paint()..color = Colors.black.withValues(alpha:0.3));
       // The Ring
-      canvas.drawCircle(offset, cellSize * 0.4, Paint()..style=PaintingStyle.stroke..color=borderColor.withOpacity(0.6)..strokeWidth=1);
+      canvas.drawCircle(offset, cellSize * 0.4, Paint()..style=PaintingStyle.stroke..color=borderColor.withValues(alpha:0.6)..strokeWidth=1);
     }
 
     // D. Player Name (Burnt Wood Text Effect)
@@ -144,7 +143,7 @@ class LudoBoardPainter extends CustomPainter {
             // Apply color with opacity (Painted Wood effect)
             canvas.drawRect(
                 Rect.fromLTWH(col * cellSize, row * cellSize, cellSize, cellSize),
-                Paint()..color = cellColor.withOpacity(0.85)
+                Paint()..color = cellColor.withValues(alpha:0.85)
             );
           }
 
@@ -166,7 +165,7 @@ class LudoBoardPainter extends CustomPainter {
         style: TextStyle(
             fontSize: cellSize * 0.7,
             fontFamily: Icons.star.fontFamily,
-            color: const Color(0xFF3E2723).withOpacity(0.6) // Burnt wood star
+            color: const Color(0xFF3E2723).withValues(alpha:0.6) // Burnt wood star
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -184,11 +183,11 @@ class LudoBoardPainter extends CustomPainter {
     double half = (3 * cellSize) / 2;
     Paint paint = Paint()..style = PaintingStyle.fill;
 
-    // Use .withOpacity(0.85) for all to keep the texture visible
-    canvas.drawPath(Path()..moveTo(cx - half, cy - half)..lineTo(cx, cy)..lineTo(cx - half, cy + half)..close(), paint..color = redColor.withOpacity(0.85));
-    canvas.drawPath(Path()..moveTo(cx - half, cy - half)..lineTo(cx, cy)..lineTo(cx + half, cy - half)..close(), paint..color = greenColor.withOpacity(0.85));
-    canvas.drawPath(Path()..moveTo(cx + half, cy - half)..lineTo(cx, cy)..lineTo(cx + half, cy + half)..close(), paint..color = yellowColor.withOpacity(0.85));
-    canvas.drawPath(Path()..moveTo(cx - half, cy + half)..lineTo(cx, cy)..lineTo(cx + half, cy + half)..close(), paint..color = blueColor.withOpacity(0.85));
+    // Use .withValues(alpha:0.85) for all to keep the texture visible
+    canvas.drawPath(Path()..moveTo(cx - half, cy - half)..lineTo(cx, cy)..lineTo(cx - half, cy + half)..close(), paint..color = redColor.withValues(alpha:0.85));
+    canvas.drawPath(Path()..moveTo(cx - half, cy - half)..lineTo(cx, cy)..lineTo(cx + half, cy - half)..close(), paint..color = greenColor.withValues(alpha:0.85));
+    canvas.drawPath(Path()..moveTo(cx + half, cy - half)..lineTo(cx, cy)..lineTo(cx + half, cy + half)..close(), paint..color = yellowColor.withValues(alpha:0.85));
+    canvas.drawPath(Path()..moveTo(cx - half, cy + half)..lineTo(cx, cy)..lineTo(cx + half, cy + half)..close(), paint..color = blueColor.withValues(alpha:0.85));
 
     // Draw "Home" Text in center
     final textPainter = TextPainter(

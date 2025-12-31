@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../blocs/computer/computer_game_bloc.dart';
-import '../blocs/game/game_bloc.dart'; // Needed for StartComputerGame event
-import '../blocs/game/game_event.dart';
+
 import '../services/audio_service.dart';
 import 'home_menu.dart';
-import 'computer_game_board.dart' hide ComputerGameBloc;
+import 'computer_game_board.dart';
 import '../widgets/token_pawn.dart';
 
 class LandingScreen extends StatefulWidget {
@@ -59,7 +56,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 25),
                 decoration: _woodenBoxDecoration().copyWith(
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.5), offset: const Offset(5, 8), blurRadius: 10)
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.5), offset: const Offset(5, 8), blurRadius: 10)
                     ]
                 ),
                 child: const Column(
@@ -90,7 +87,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3E2723).withOpacity(0.85),
+                  color: const Color(0xFF3E2723).withValues(alpha:0.85),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFF8D6E63), width: 3),
                 ),
@@ -133,7 +130,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Text(
                   "Version 1.0.0",
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Colors.white.withValues(alpha:0.7), fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -249,7 +246,7 @@ class _LandingScreenState extends State<LandingScreen> {
             opacity: 0.15,
           ),
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+          border: Border.all(color: Colors.white.withValues(alpha:0.5), width: 2),
           boxShadow: const [
             BoxShadow(color: Colors.black45, offset: Offset(2, 4), blurRadius: 5)
           ],
@@ -259,7 +256,7 @@ class _LandingScreenState extends State<LandingScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha:0.2),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: Colors.white, size: 30),
@@ -280,7 +277,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha:0.8),
                     fontSize: 12,
                   ),
                 ),

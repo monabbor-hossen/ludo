@@ -180,7 +180,7 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
             color: boxColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey[700]!, width: 2),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 5, offset: const Offset(2, 2))],
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha:0.3), blurRadius: 5, offset: const Offset(2, 2))],
           ),
           child: CustomPaint(
             // Use _displayValue (Animation) or widget.value (Static)

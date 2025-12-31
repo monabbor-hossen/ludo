@@ -174,12 +174,12 @@ class _ThreeDimensionalDiceState extends State<ThreeDimensionalDice> with Single
               ..rotateZ(rz),
             child: Stack(
               children: [
-                _face(1, Matrix4.identity()..translate(0.0, 0.0, widget.size/2)),
-                _face(6, Matrix4.identity()..rotateY(pi)..translate(0.0, 0.0, widget.size/2)),
-                _face(3, Matrix4.identity()..rotateY(-pi/2)..translate(0.0, 0.0, widget.size/2)),
-                _face(2, Matrix4.identity()..rotateY(pi/2)..translate(0.0, 0.0, widget.size/2)),
-                _face(4, Matrix4.identity()..rotateX(-pi/2)..translate(0.0, 0.0, widget.size/2)),
-                _face(5, Matrix4.identity()..rotateX(pi/2)..translate(0.0, 0.0, widget.size/2)),
+                _face(1, Matrix4.identity()..translateByDouble(0.0, 0.0, widget.size/2, 0.0)),
+                _face(6, Matrix4.identity()..rotateY(pi)..translateByDouble(0.0, 0.0, widget.size/2, 0.0)),
+                _face(3, Matrix4.identity()..rotateY(-pi/2)..translateByDouble(0.0, 0.0, widget.size/2, 0.0)),
+                _face(2, Matrix4.identity()..rotateY(pi/2)..translateByDouble(0.0, 0.0, widget.size/2, 0.0)),
+                _face(4, Matrix4.identity()..rotateX(-pi/2)..translateByDouble(0.0, 0.0, widget.size/2, 0.0)),
+                _face(5, Matrix4.identity()..rotateX(pi/2)..translateByDouble(0.0, 0.0, widget.size/2, 0.0)),
               ],
             ),
           );
@@ -199,7 +199,7 @@ class _ThreeDimensionalDiceState extends State<ThreeDimensionalDice> with Single
             color: widget.disabled ? Colors.grey[300] : Colors.white,
             border: Border.all(color: Colors.black, width: 2),
             borderRadius: BorderRadius.circular(8),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 4)]
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 4)]
         ),
         child: CustomPaint(
           painter: _DotPainter(n, widget.disabled ? Colors.grey : Colors.black),

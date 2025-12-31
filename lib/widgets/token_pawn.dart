@@ -19,7 +19,7 @@ class TokenPawn extends StatelessWidget {
     Color baseColor = _getColor(colorName);
 
     if (isDimmed) {
-      baseColor = baseColor.withOpacity(0.8);
+      baseColor = baseColor.withValues(alpha: 0.8);
     }
 
     return CustomPaint(
@@ -30,13 +30,13 @@ class TokenPawn extends StatelessWidget {
             ? Text(
           "${tokenIndex + 1}",
           style: TextStyle(
-            color: Colors.white.withOpacity(isDimmed ? 0.9 : 1.0),
+            color: Colors.white.withValues(alpha:isDimmed ? 0.9 : 1.0),
             fontSize: 12,
             fontWeight: FontWeight.bold,
             shadows: [
               Shadow(
                 blurRadius: 2,
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black.withValues(alpha:0.5),
                 offset: const Offset(1, 1),
               ),
             ],
@@ -71,7 +71,7 @@ class _PawnPainter extends CustomPainter {
 
     final Color lighterColor = Color.lerp(color, Colors.white, 0.3)!;
     final Color darkerColor = Color.lerp(color, Colors.black, 0.2)!;
-    final Color shadowColor = Colors.black.withOpacity(0.3);
+    final Color shadowColor = Colors.black.withValues(alpha:0.3);
 
     // 1. Shadow
     paint.color = shadowColor;
@@ -112,7 +112,7 @@ class _PawnPainter extends CustomPainter {
     paint.shader = null;
 
     // 5. Highlight
-    paint.color = Colors.white.withOpacity(0.6);
+    paint.color = Colors.white.withValues(alpha:0.6);
     canvas.drawOval(Rect.fromLTWH(w * 0.3, h * 0.1, w * 0.2, h * 0.15), paint);
   }
 

@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ludo/screens/landing_screen.dart';
-import '../blocs/game/game_bloc.dart';
-import '../blocs/game/game_event.dart'; // [cite: 14]
-import 'home_menu.dart';
+
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

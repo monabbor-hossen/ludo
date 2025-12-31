@@ -116,14 +116,14 @@ class HomeMenu extends StatelessWidget {
         width: 280,
         padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.9), // Tinted wood
+          color: color.withValues(alpha:0.9), // Tinted wood
           image: const DecorationImage(
             image: AssetImage('assets/wood.png'),
             fit: BoxFit.cover,
             opacity: 0.2, // Show texture through color
           ),
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white.withOpacity(0.6), width: 2),
+          border: Border.all(color: Colors.white.withValues(alpha:0.6), width: 2),
           boxShadow: const [
             BoxShadow(color: Colors.black45, offset: Offset(2, 4), blurRadius: 5)
           ],
