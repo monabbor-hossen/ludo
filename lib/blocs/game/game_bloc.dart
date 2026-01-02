@@ -12,15 +12,13 @@ class GameBloc extends Bloc<GameEvent, GameState> {
   final FirebaseService _firebaseService;
   final GameEngine _gameEngine = GameEngine();
 
-  // FIX: Memory to track moves that are waiting for server confirmation
-  // Format: { 'UserId': { TokenIndex: TargetPosition } }
+  // Memory to track moves that are waiting for server confirmation
   final Map<String, Map<int, int>> _pendingMoves = {};
 
   GameBloc({required FirebaseService firebaseService})
       : _firebaseService = firebaseService,
         super(GameInitial()) {
 
-    // 1. Load Game (Stream with Anti-Glitch Protection)
     on<LoadGame>((event, emit) async {
       await emit.forEach(
         _firebaseService.streamGame(event.gameId),
@@ -33,7 +31,6 @@ class GameBloc extends Bloc<GameEvent, GameState> {
           List<String> usersToCheck = _pendingMoves.keys.toList();
 
           for (String userId in usersToCheck) {
-            // Find player color
             var player = incomingGame.players.firstWhere((p) => p['id'] == userId, orElse: () => {});
             if (player.isEmpty) continue;
 
@@ -50,13 +47,11 @@ class GameBloc extends Bloc<GameEvent, GameState> {
                 // SUCCESS: Server has caught up!
                 completedTokens.add(tokenIdx);
               } else {
-                // LAG: Server is sending old data (e.g. 0).
-                // We ignore the server and FORCE our local optimistic value (e.g. 1).
+                // LAG: Force optimistic value
                 correctedTokens[color]![tokenIdx] = targetPos;
               }
             });
 
-            // Cleanup finished moves
             for (int t in completedTokens) {
               userMoves.remove(t);
             }
@@ -149,8 +144,14 @@ class GameBloc extends Bloc<GameEvent, GameState> {
           currentWinners.add(event.userId);
         }
 
+        // Check if game is finished (Last person remaining loses)
+        String newStatus = game.status;
+        if (currentWinners.length >= game.players.length - 1 && game.players.length > 1) {
+          newStatus = 'finished';
+        }
+
         int nextTurn = game.currentTurn;
-        if (game.diceValue != 6 && !hasWon) {
+        if (game.diceValue != 6 && !hasWon && newStatus != 'finished') {
           nextTurn = _getNextValidTurn(game, game.currentTurn);
         }
 
@@ -159,16 +160,30 @@ class GameBloc extends Bloc<GameEvent, GameState> {
           diceValue: 0,
           currentTurn: nextTurn,
           winners: currentWinners,
+          status: newStatus,
         )));
 
         if (_didKillOccur(game.tokens, allTokens)) {
           AudioService.playKill();
         } else if (hasWon) {
           AudioService.playWin();
+        } else {
+          AudioService.playMove(); // Added move sound
         }
 
         // --- 3. SEND TO SERVER ---
         await _firebaseService.moveToken(event.gameId, event.userId, event.tokenIndex, newPos);
+
+        // --- FIX 1: RESET DICE ON SERVER ---
+        // We explicitly reset the dice to 0 on Firebase.
+        // This prevents the "non-stop rotating" bug where the second roll (especially if it's another 6)
+        // isn't registered correctly because the server value never changed.
+        await _firebaseService.updateGameState(event.gameId, {
+          'diceValue': 0,
+          'currentTurn': nextTurn, // Ensure turn is synced
+          'status': newStatus,     // Ensure game over status is synced
+          if (hasWon) 'winners': currentWinners,
+        });
       }
     });
   }

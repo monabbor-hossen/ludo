@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:ludo/widgets/ludo_board_painter.dart';
-// import 'package:ludo/widgets/token_pawn.dart'; // <-- NO LONGER NEEDED HERE
-import 'package:ludo/widgets/animated_token.dart'; // <-- IMPORT NEW WIDGET
+import 'ludo_board_painter.dart';
+import 'animated_token.dart';
 import '../models/game_model.dart';
 import '../logic/game_engine.dart';
 import '../blocs/game/game_bloc.dart';
@@ -37,8 +36,8 @@ class BoardLayout extends StatelessWidget {
                   painter: LudoBoardPainter(players: gameModel.players),
                 ),
               ),
-              // Build animated tokens
-              ..._buildTokens(context, gameModel.tokens, cellSize, tokenSize),
+              // --- CHANGED: Use _buildSortedTokens instead of simple _buildTokens ---
+              ..._buildSortedTokens(context, gameModel.tokens, cellSize, tokenSize),
             ],
           ),
         );
@@ -46,53 +45,92 @@ class BoardLayout extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildTokens(BuildContext context, Map<String, List<int>> allTokens, double cellSize, double tokenSize) {
-    List<Widget> widgets = [];
+  // --- FIX 2: SORT TOKENS (Layering Fix) ---
+  List<Widget> _buildSortedTokens(BuildContext context, Map<String, List<int>> allTokens, double cellSize, double tokenSize) {
+    List<Map<String, dynamic>> tokenDataList = [];
 
+    // 1. Flatten Map into a List
     allTokens.forEach((color, positions) {
       for (int i = 0; i < positions.length; i++) {
-        int currentPos = positions[i];
-
-        // Only render if valid (logic is now inside AnimatedToken mostly)
-        // But we keep the loop to generate the widgets
-
-        widgets.add(
-          AnimatedToken(
-            // Use ValueKey so Flutter knows which pawn to animate specifically
-            key: ValueKey("$color-$i"),
-            colorName: color,
-            tokenIndex: i,
-            currentPosition: currentPos,
-            isDimmed: gameModel.diceValue == 0 || currentPos == 99,
-            cellSize: cellSize,
-            tokenSize: tokenSize,
-            onTap: () => _handleTap(context, color, i, currentPos),
-          ),
-        );
+        tokenDataList.add({
+          'color': color,
+          'index': i,
+          'pos': positions[i],
+        });
       }
     });
-    return widgets;
+
+    // 2. Identify the Current Turn Player's Color
+    String currentTurnColor = '';
+    if (gameModel.players.isNotEmpty) {
+      currentTurnColor = gameModel.players[gameModel.currentTurn]['color'];
+    }
+
+    // 3. SORT: Move Current Player's tokens to the END of the list.
+    // In a Stack, the last item is drawn ON TOP.
+    // This ensures that if multiple pawns are on one spot, the active player's pawn is clickable.
+    tokenDataList.sort((a, b) {
+      bool aIsCurrent = (a['color'] == currentTurnColor);
+      bool bIsCurrent = (b['color'] == currentTurnColor);
+
+      if (aIsCurrent && !bIsCurrent) return 1; // A goes after B
+      if (!aIsCurrent && bIsCurrent) return -1; // B goes after A
+      return 0; // Keep original order
+    });
+
+    // 4. Build Widgets
+    return tokenDataList.map((data) {
+      return _buildSingleToken(context, data['color'], data['index'], data['pos'], cellSize, tokenSize);
+    }).toList();
+  }
+
+  Widget _buildSingleToken(BuildContext context, String color, int i, int currentPos, double cellSize, double tokenSize) {
+    return AnimatedToken(
+      key: ValueKey("$color-$i"),
+      colorName: color,
+      tokenIndex: i,
+      currentPosition: currentPos,
+      isDimmed: gameModel.diceValue == 0 || currentPos == 99,
+      cellSize: cellSize,
+      tokenSize: tokenSize,
+      onTap: () => _handleTap(context, color, i, currentPos),
+    );
   }
 
   void _handleTap(BuildContext context, String clickedPawnColor, int index, int currentPos) {
+    // 1. Check if it's My Color
     final myPlayer = gameModel.players.firstWhere(
             (p) => p['id'] == currentUserId,
         orElse: () => {'color': 'Spectator'}
     );
     String myColor = myPlayer['color'];
-
     if (clickedPawnColor != myColor) return;
-    if (gameModel.diceValue == 0) return;
 
-    final currentPlayer = gameModel.players[gameModel.currentTurn];
-    if (currentPlayer['id'] != currentUserId) return;
-
-    int nextPos = _engine.calculateNextPosition(currentPos, gameModel.diceValue, clickedPawnColor);
-    if (nextPos == currentPos) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid move!"), duration: Duration(milliseconds: 500)));
+    // 2. Check if Dice is Rolled
+    if (gameModel.diceValue == 0) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Roll the dice first!"), duration: Duration(milliseconds: 500)));
       return;
     }
 
+    // 3. Check if it is CURRENTLY My Turn
+    final currentPlayer = gameModel.players[gameModel.currentTurn];
+    if (currentPlayer['id'] != currentUserId) return;
+
+    // 4. Validate Move (Engine)
+    int nextPos = _engine.calculateNextPosition(currentPos, gameModel.diceValue, clickedPawnColor);
+    if (nextPos == currentPos) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("Invalid move!"),
+              duration: Duration(milliseconds: 500)
+          )
+      );
+      return;
+    }
+
+    // 5. Send Move
     context.read<GameBloc>().add(
       MoveToken(
         gameId: gameModel.gameId,
